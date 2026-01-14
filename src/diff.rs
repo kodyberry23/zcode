@@ -44,11 +44,11 @@ pub fn extract_hunks<'a>(
                 let old_line = change.old_index();
                 let new_line = change.new_index();
 
-                if old_line.is_some() {
-                    start_line = old_line.unwrap();
+                if let Some(line) = old_line {
+                    start_line = line;
                 }
-                if new_line.is_some() {
-                    end_line = new_line.unwrap();
+                if let Some(line) = new_line {
+                    end_line = line;
                 }
 
                 changes.push(LineChange {
