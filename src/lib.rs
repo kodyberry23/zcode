@@ -15,14 +15,14 @@
 //!
 //! The plugin is organized into several key modules:
 //!
-//! - [`state`]: Central application state machine
-//! - [`ui`]: User interface components and rendering
-//! - [`input`]: Keyboard input handling and key bindings
-//! - [`file_ops`]: File operations with atomic writes and backups
-//! - [`providers`]: AI provider implementations
-//! - [`diff`]: Diff generation and hunk extraction
-//! - [`parsers`]: Parsing AI tool outputs
-//! - [`config`]: Configuration management
+//! - `state`: Central application state machine
+//! - `ui`: User interface components and rendering
+//! - `input`: Keyboard input handling and key bindings
+//! - `file_ops`: File operations with atomic writes and backups
+//! - `providers`: AI provider implementations
+//! - `diff`: Diff generation and hunk extraction
+//! - `parsers`: Parsing AI tool outputs
+//! - `config`: Configuration management
 
 mod config;
 mod diff;
