@@ -42,7 +42,7 @@ pub fn apply_accepted_hunks(
     for hunk in &accepted_hunks {
         hunks_by_file
             .entry(hunk.file_path.clone())
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(hunk);
     }
 
@@ -62,12 +62,8 @@ pub fn apply_accepted_hunks(
     let backups_created = backup_set.backup_paths();
 
     // Apply changes to all files
-    let mut files_modified = Vec::new();
-
-    match apply_all_files(&hunks_by_file, pending_changes) {
-        Ok(modified) => {
-            files_modified = modified;
-        }
+    let files_modified = match apply_all_files(&hunks_by_file, pending_changes) {
+        Ok(modified) => modified,
         Err(e) => {
             // Rollback on failure
             if config.general.create_backups {
@@ -75,7 +71,7 @@ pub fn apply_accepted_hunks(
             }
             return Err(e).context("Failed to apply hunks");
         }
-    }
+    };
 
     Ok(ApplyResult {
         files_modified,

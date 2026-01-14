@@ -80,7 +80,7 @@ pub mod key_helpers {
     /// Check if a key matches a specific character
     pub fn is_char(key: &KeyWithModifier, c: char) -> bool {
         if let BareKey::Char(ch) = key.bare_key {
-            ch.to_ascii_lowercase() == c.to_ascii_lowercase()
+            ch.eq_ignore_ascii_case(&c)
         } else {
             false
         }

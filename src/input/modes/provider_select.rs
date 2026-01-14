@@ -12,18 +12,16 @@ impl InputHandler for ProviderSelectHandler {
         use key_helpers::*;
 
         // Navigation
-        if is_char(key, 'j') {
-            if state.selected_provider_idx < state.available_providers.len().saturating_sub(1) {
-                state.selected_provider_idx += 1;
-                return InputResult::Consumed;
-            }
+        if is_char(key, 'j')
+            && state.selected_provider_idx < state.available_providers.len().saturating_sub(1)
+        {
+            state.selected_provider_idx += 1;
+            return InputResult::Consumed;
         }
 
-        if is_char(key, 'k') {
-            if state.selected_provider_idx > 0 {
-                state.selected_provider_idx -= 1;
-                return InputResult::Consumed;
-            }
+        if is_char(key, 'k') && state.selected_provider_idx > 0 {
+            state.selected_provider_idx -= 1;
+            return InputResult::Consumed;
         }
 
         // Select provider

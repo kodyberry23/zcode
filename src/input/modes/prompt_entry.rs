@@ -21,19 +21,15 @@ impl InputHandler for PromptEntryHandler {
         }
 
         // Handle special keys
-        if is_key(key, BareKey::Backspace) {
-            if state.cursor_position > 0 {
-                state.cursor_position -= 1;
-                state.prompt_buffer.remove(state.cursor_position);
-                return InputResult::Consumed;
-            }
+        if is_key(key, BareKey::Backspace) && state.cursor_position > 0 {
+            state.cursor_position -= 1;
+            state.prompt_buffer.remove(state.cursor_position);
+            return InputResult::Consumed;
         }
 
-        if is_key(key, BareKey::Delete) {
-            if state.cursor_position < state.prompt_buffer.len() {
-                state.prompt_buffer.remove(state.cursor_position);
-                return InputResult::Consumed;
-            }
+        if is_key(key, BareKey::Delete) && state.cursor_position < state.prompt_buffer.len() {
+            state.prompt_buffer.remove(state.cursor_position);
+            return InputResult::Consumed;
         }
 
         if is_key(key, BareKey::Enter) {
@@ -50,18 +46,14 @@ impl InputHandler for PromptEntryHandler {
         }
 
         // Arrow keys for cursor movement
-        if is_key(key, BareKey::Left) {
-            if state.cursor_position > 0 {
-                state.cursor_position -= 1;
-                return InputResult::Consumed;
-            }
+        if is_key(key, BareKey::Left) && state.cursor_position > 0 {
+            state.cursor_position -= 1;
+            return InputResult::Consumed;
         }
 
-        if is_key(key, BareKey::Right) {
-            if state.cursor_position < state.prompt_buffer.len() {
-                state.cursor_position += 1;
-                return InputResult::Consumed;
-            }
+        if is_key(key, BareKey::Right) && state.cursor_position < state.prompt_buffer.len() {
+            state.cursor_position += 1;
+            return InputResult::Consumed;
         }
 
         if is_key(key, BareKey::Home) {

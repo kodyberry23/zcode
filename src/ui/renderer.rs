@@ -151,11 +151,10 @@ impl Renderer for ProcessingRenderer {
             % spinner_chars.len();
 
         println!(
-            "{}{}{}Processing... {}{}",
+            "{}{}{}Processing... Please wait{}",
             " ".repeat((ctx.cols / 2).saturating_sub(10)),
             ctx.colors.prompt_fg,
             spinner_chars[frame],
-            "Please wait",
             crate::ui::RESET
         );
     }

@@ -3,8 +3,6 @@
 //! This module defines the core data types and state machine for the ZCode plugin.
 //! It manages the application's modes, user interactions, and the flow between
 //! prompting, diff review, and file application.
-
-use anyhow;
 use std::collections::HashMap;
 use std::path::PathBuf;
 

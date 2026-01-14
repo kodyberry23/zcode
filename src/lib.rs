@@ -24,6 +24,14 @@
 //! - `parsers`: Parsing AI tool outputs
 //! - `config`: Configuration management
 
+// Allow certain lints for stub code that will be implemented later
+#![allow(dead_code)]
+#![allow(unused_imports)]
+#![allow(unused_variables)]
+#![allow(clippy::ptr_arg)]
+#![allow(clippy::manual_clamp)]
+#![allow(clippy::default_constructed_unit_structs)]
+
 mod config;
 mod diff;
 mod error;

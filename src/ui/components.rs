@@ -133,7 +133,7 @@ pub struct PromptInput;
 
 impl PromptInput {
     pub fn render(prompt: &str, text: &str, cursor_pos: usize, colors: &Colors, width: usize) {
-        println!("{}{}{}:{}{}", colors.prompt_fg, BOLD, prompt, RESET, "");
+        println!("{}{}{}:{}", colors.prompt_fg, BOLD, prompt, RESET);
 
         // Render text with cursor
         let mut display = String::new();
