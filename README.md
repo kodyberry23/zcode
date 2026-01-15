@@ -1,6 +1,7 @@
 # ZCode
 
-[![CI](https://github.com/kodyberry23/zcode/actions/workflows/ci.yml/badge.svg)](https://github.com/kodyberry23/zcode/actions/workflows/ci.yml)
+[![CI](https://github.com/kodyberry23/zcode/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/kodyberry23/zcode/actions/workflows/ci.yml)
+[![Release](https://github.com/kodyberry23/zcode/actions/workflows/release.yml/badge.svg)](https://github.com/kodyberry23/zcode/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE.md)
 [![Rust 1.70+](https://img.shields.io/badge/rust-1.70%2B-orange.svg)](https://www.rust-lang.org/)
 
