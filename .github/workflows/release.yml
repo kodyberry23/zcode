@@ -46,6 +46,11 @@ jobs:
         id: version
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
+      - name: Verify binary
+        run: |
+          ls -lh target/wasm32-wasip1/release/zcode.wasm
+          du -sh target/wasm32-wasip1/release/zcode.wasm
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
@@ -57,11 +62,32 @@ jobs:
 
             1. Download `zcode.wasm` from the assets below
             2. Copy to `~/.config/zellij/plugins/`
-            3. Add to your Zellij config (see [README](https://github.com/${{ github.repository }}) for details)
+            3. Add to your Zellij config (see [README](https://github.com/${{ github.repository }}/blob/${{ steps.version.outputs.VERSION }}/README.md) for details)
 
             ### What's Changed
 
             See the [commit history](https://github.com/${{ github.repository }}/commits/${{ steps.version.outputs.VERSION }}) for changes.
+
+            ### Quick Setup
+
+            ```bash
+            # Copy plugin to Zellij plugins directory
+            mkdir -p ~/.config/zellij/plugins
+            cp zcode.wasm ~/.config/zellij/plugins/
+
+            # Add to ~/.config/zellij/config.kdl:
+            keybindings {
+                normal {
+                    bind "Ctrl z" {
+                        LaunchOrFocusPlugin "file:~/.config/zellij/plugins/zcode.wasm" {
+                            floating true
+                        }
+                    }
+                }
+            }
+            ```
+
+            Then press `Ctrl+z` to open ZCode!
           files: |
             target/wasm32-wasip1/release/zcode.wasm
           fail_on_unmatched_files: true

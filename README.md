@@ -65,18 +65,26 @@ cargo build --release --target wasm32-wasip1
 
 ### Download Pre-built Plugin
 
-Alternatively, download the latest pre-built `zcode.wasm` from the [Releases page](https://github.com/kodyberry23/zcode/releases):
+The easiest way to get started is to download the latest pre-built plugin from the [Releases page](https://github.com/kodyberry23/zcode/releases):
 
+**macOS / Linux:**
 ```bash
-# Download the latest release
+mkdir -p ~/.config/zellij/plugins
 cd ~/.config/zellij/plugins
-wget https://github.com/kodyberry23/zcode/releases/download/v0.1.0/zcode.wasm
 
-# Or using curl
-curl -L -O https://github.com/kodyberry23/zcode/releases/download/v0.1.0/zcode.wasm
+# Download the latest release (replace v0.1.0 with the latest version tag)
+curl -L -o zcode.wasm https://github.com/kodyberry23/zcode/releases/download/v0.1.0/zcode.wasm
 ```
 
-(Replace `v0.1.0` with the latest version)
+**Alternative using wget:**
+```bash
+wget -O ~/.config/zellij/plugins/zcode.wasm \
+  https://github.com/kodyberry23/zcode/releases/download/v0.1.0/zcode.wasm
+```
+
+Then skip to the "[Add to Zellij](#add-to-zellij)" section below.
+
+**Note:** Check the [Releases page](https://github.com/kodyberry23/zcode/releases) for the latest version tag to use instead of `v0.1.0`.
 
 ### Add to Zellij
 
@@ -399,6 +407,43 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 - [ ] Language-specific parsers for better output extraction
 - [ ] Plugin marketplace support
 - [ ] Real-time collaboration features
+
+## Releases & Versioning
+
+### Downloading Releases
+
+Pre-built WASM plugins are available on the [Releases page](https://github.com/kodyberry23/zcode/releases). Each release includes:
+
+- Pre-compiled `zcode.wasm` plugin
+- Installation instructions
+- Change notes
+
+### Creating a Release
+
+To create a new release, follow these steps:
+
+```bash
+# 1. Update version in Cargo.toml
+# 2. Commit the version bump
+git add Cargo.toml
+git commit -m "chore: bump version to X.Y.Z"
+
+# 3. Create and push the version tag
+git tag vX.Y.Z
+git push origin main
+git push origin vX.Y.Z
+```
+
+GitHub Actions will automatically:
+1. Build the WASM plugin
+2. Create a GitHub Release with the binary
+3. Upload `zcode.wasm` as a downloadable asset
+
+This uses a **tag-based release workflow** which:
+- Gives explicit control over when releases happen
+- Works for both direct pushes and PR merges
+- Follows Rust ecosystem conventions
+- Avoids accidental releases on every commit
 
 ## License
 
