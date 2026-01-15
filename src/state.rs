@@ -178,7 +178,12 @@ impl State {
 
         // Check for Claude Code
         // First check if user has custom path in config
-        if let Some(custom_path) = self.config.providers.get("claude").and_then(|p| p.path.as_ref()) {
+        if let Some(custom_path) = self
+            .config
+            .providers
+            .get("claude")
+            .and_then(|p| p.path.as_ref())
+        {
             if is_cli_available(custom_path) {
                 self.available_providers.push(ProviderInfo {
                     name: "Claude Code".to_string(),
@@ -195,7 +200,12 @@ impl State {
         }
 
         // Check for Aider
-        if let Some(custom_path) = self.config.providers.get("aider").and_then(|p| p.path.as_ref()) {
+        if let Some(custom_path) = self
+            .config
+            .providers
+            .get("aider")
+            .and_then(|p| p.path.as_ref())
+        {
             if is_cli_available(custom_path) {
                 self.available_providers.push(ProviderInfo {
                     name: "Aider".to_string(),
@@ -212,7 +222,12 @@ impl State {
         }
 
         // Check for GitHub Copilot (compound command - check gh first, then copilot subcommand)
-        if let Some(custom_path) = self.config.providers.get("copilot").and_then(|p| p.path.as_ref()) {
+        if let Some(custom_path) = self
+            .config
+            .providers
+            .get("copilot")
+            .and_then(|p| p.path.as_ref())
+        {
             if is_cli_available_with_args(custom_path, &["copilot", "--help"]) {
                 self.available_providers.push(ProviderInfo {
                     name: "GitHub Copilot".to_string(),
@@ -220,7 +235,9 @@ impl State {
                     cli_command: "gh copilot".to_string(),
                 });
             }
-        } else if which::which("gh").is_ok() && is_cli_available_with_args("gh", &["copilot", "--help"]) {
+        } else if which::which("gh").is_ok()
+            && is_cli_available_with_args("gh", &["copilot", "--help"])
+        {
             self.available_providers.push(ProviderInfo {
                 name: "GitHub Copilot".to_string(),
                 available: true,

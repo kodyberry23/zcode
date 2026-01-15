@@ -97,10 +97,7 @@ impl ProviderMenu {
     ) {
         if providers.is_empty() {
             println!();
-            println!(
-                "{}  No AI providers detected.{}",
-                colors.error_fg, RESET
-            );
+            println!("{}  No AI providers detected.{}", colors.error_fg, RESET);
             println!();
             println!("  Please install one of the following:");
             println!("    - Claude Code (claude)");

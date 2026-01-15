@@ -171,12 +171,12 @@ path = "/usr/local/bin/my-ai"
 parser = "unified_diff"
 "#;
         let config: Config = toml::from_str(toml_str).unwrap();
-        
+
         // Check Claude config
         let claude = config.providers.get("claude").unwrap();
         assert!(claude.enabled);
         assert_eq!(claude.path, Some("/opt/homebrew/bin/claude".to_string()));
-        
+
         // Check custom AI config
         let custom = config.providers.get("custom_ai").unwrap();
         assert!(custom.enabled);
@@ -200,7 +200,7 @@ parser = "unified_diff"
         // This test verifies that the which crate can find Claude on the system
         // It's ignored by default because it depends on the system having Claude installed
         use which::which;
-        
+
         match which("claude") {
             Ok(path) => {
                 println!("✓ Found Claude at: {}", path.display());
