@@ -178,40 +178,53 @@ impl State {
 
         // Check for Claude Code
         // First check if user has custom path in config
-        if let Some(custom_path) = self
-            .config
-            .providers
-            .get("claude")
-            .and_then(|p| p.path.as_ref())
-        {
-            if is_cli_available(custom_path) {
+        if let Some(provider_config) = self.config.providers.get("claude") {
+            if provider_config.enabled {
+                if let Some(custom_path) = &provider_config.path {
+                    // Trust user-provided paths without verification (WASM sandbox may block execution)
+                    self.available_providers.push(ProviderInfo {
+                        name: "Claude Code".to_string(),
+                        available: true,
+                        cli_command: custom_path.clone(),
+                    });
+                } else {
+                    // Try auto-detection only if no custom path provided
+                    if which::which("claude").is_ok() {
+                        self.available_providers.push(ProviderInfo {
+                            name: "Claude Code".to_string(),
+                            available: true,
+                            cli_command: "claude".to_string(),
+                        });
+                    }
+                }
+            }
+        } else {
+            // No config entry, try auto-detection
+            if which::which("claude").is_ok() {
                 self.available_providers.push(ProviderInfo {
                     name: "Claude Code".to_string(),
                     available: true,
                     cli_command: "claude".to_string(),
                 });
             }
-        } else if which::which("claude").is_ok() {
-            self.available_providers.push(ProviderInfo {
-                name: "Claude Code".to_string(),
-                available: true,
-                cli_command: "claude".to_string(),
-            });
         }
 
         // Check for Aider
-        if let Some(custom_path) = self
-            .config
-            .providers
-            .get("aider")
-            .and_then(|p| p.path.as_ref())
-        {
-            if is_cli_available(custom_path) {
-                self.available_providers.push(ProviderInfo {
-                    name: "Aider".to_string(),
-                    available: true,
-                    cli_command: "aider".to_string(),
-                });
+        if let Some(provider_config) = self.config.providers.get("aider") {
+            if provider_config.enabled {
+                if let Some(custom_path) = &provider_config.path {
+                    self.available_providers.push(ProviderInfo {
+                        name: "Aider".to_string(),
+                        available: true,
+                        cli_command: custom_path.clone(),
+                    });
+                } else if which::which("aider").is_ok() {
+                    self.available_providers.push(ProviderInfo {
+                        name: "Aider".to_string(),
+                        available: true,
+                        cli_command: "aider".to_string(),
+                    });
+                }
             }
         } else if which::which("aider").is_ok() {
             self.available_providers.push(ProviderInfo {
@@ -221,38 +234,47 @@ impl State {
             });
         }
 
-        // Check for GitHub Copilot (compound command - check gh first, then copilot subcommand)
-        if let Some(custom_path) = self
-            .config
-            .providers
-            .get("copilot")
-            .and_then(|p| p.path.as_ref())
-        {
-            if is_cli_available_with_args(custom_path, &["copilot", "--help"]) {
-                self.available_providers.push(ProviderInfo {
-                    name: "GitHub Copilot".to_string(),
-                    available: true,
-                    cli_command: "gh copilot".to_string(),
-                });
+        // Check for GitHub Copilot
+        if let Some(provider_config) = self.config.providers.get("copilot") {
+            if provider_config.enabled {
+                if let Some(custom_path) = &provider_config.path {
+                    self.available_providers.push(ProviderInfo {
+                        name: "GitHub Copilot".to_string(),
+                        available: true,
+                        cli_command: custom_path.clone(),
+                    });
+                } else if which::which("gh").is_ok() {
+                    self.available_providers.push(ProviderInfo {
+                        name: "GitHub Copilot".to_string(),
+                        available: true,
+                        cli_command: "gh".to_string(),
+                    });
+                }
             }
-        } else if which::which("gh").is_ok()
-            && is_cli_available_with_args("gh", &["copilot", "--help"])
-        {
+        } else if which::which("gh").is_ok() {
             self.available_providers.push(ProviderInfo {
                 name: "GitHub Copilot".to_string(),
                 available: true,
-                cli_command: "gh copilot".to_string(),
+                cli_command: "gh".to_string(),
             });
         }
 
         // Check for Amazon Q Developer
-        if let Some(custom_path) = self.config.providers.get("q").and_then(|p| p.path.as_ref()) {
-            if is_cli_available(custom_path) {
-                self.available_providers.push(ProviderInfo {
-                    name: "Amazon Q Developer".to_string(),
-                    available: true,
-                    cli_command: "q".to_string(),
-                });
+        if let Some(provider_config) = self.config.providers.get("q") {
+            if provider_config.enabled {
+                if let Some(custom_path) = &provider_config.path {
+                    self.available_providers.push(ProviderInfo {
+                        name: "Amazon Q Developer".to_string(),
+                        available: true,
+                        cli_command: custom_path.clone(),
+                    });
+                } else if which::which("q").is_ok() {
+                    self.available_providers.push(ProviderInfo {
+                        name: "Amazon Q Developer".to_string(),
+                        available: true,
+                        cli_command: "q".to_string(),
+                    });
+                }
             }
         } else if which::which("q").is_ok() {
             self.available_providers.push(ProviderInfo {
@@ -269,10 +291,13 @@ impl State {
                 continue;
             }
 
-            if let Some(custom_path) = &provider_config.path {
-                if is_cli_available(custom_path) {
+            if provider_config.enabled {
+                if let Some(custom_path) = &provider_config.path {
                     self.available_providers.push(ProviderInfo {
-                        name: provider_config.name.clone().unwrap_or_else(|| key.clone()),
+                        name: provider_config
+                            .name
+                            .clone()
+                            .unwrap_or_else(|| key.clone()),
                         available: true,
                         cli_command: custom_path.clone(),
                     });
