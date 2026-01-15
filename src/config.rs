@@ -9,6 +9,7 @@
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -19,6 +20,37 @@ pub struct Config {
     pub keybindings: KeybindingsConfig,
     #[serde(default)]
     pub display: DisplayConfig,
+    #[serde(default)]
+    pub providers: HashMap<String, ProviderConfig>,
+}
+
+/// Configuration for a specific AI provider
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProviderConfig {
+    /// Whether this provider is enabled (default: true)
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    /// Optional custom path to the provider's CLI tool
+    pub path: Option<String>,
+    /// Optional custom name for the provider
+    pub name: Option<String>,
+    /// Optional parser type (unified_diff, code_blocks, json, regex)
+    pub parser: Option<String>,
+}
+
+impl Default for ProviderConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            path: None,
+            name: None,
+            parser: None,
+        }
+    }
+}
+
+fn default_true() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -123,5 +155,60 @@ mod tests {
         let config: Config = toml::from_str(toml_str).unwrap();
         // Verify defaults are applied
         assert_eq!(config.general.default_provider, None);
+    }
+
+    #[test]
+    fn test_provider_config() {
+        let toml_str = r#"
+[providers.claude]
+enabled = true
+path = "/opt/homebrew/bin/claude"
+
+[providers.custom_ai]
+enabled = true
+name = "My Custom AI"
+path = "/usr/local/bin/my-ai"
+parser = "unified_diff"
+"#;
+        let config: Config = toml::from_str(toml_str).unwrap();
+        
+        // Check Claude config
+        let claude = config.providers.get("claude").unwrap();
+        assert!(claude.enabled);
+        assert_eq!(claude.path, Some("/opt/homebrew/bin/claude".to_string()));
+        
+        // Check custom AI config
+        let custom = config.providers.get("custom_ai").unwrap();
+        assert!(custom.enabled);
+        assert_eq!(custom.name, Some("My Custom AI".to_string()));
+        assert_eq!(custom.path, Some("/usr/local/bin/my-ai".to_string()));
+        assert_eq!(custom.parser, Some("unified_diff".to_string()));
+    }
+
+    #[test]
+    fn test_provider_config_defaults() {
+        let provider = ProviderConfig::default();
+        assert!(provider.enabled); // Should default to true
+        assert_eq!(provider.path, None);
+        assert_eq!(provider.name, None);
+        assert_eq!(provider.parser, None);
+    }
+
+    #[test]
+    #[ignore] // Only run with --ignored flag
+    fn test_which_finds_claude() {
+        // This test verifies that the which crate can find Claude on the system
+        // It's ignored by default because it depends on the system having Claude installed
+        use which::which;
+        
+        match which("claude") {
+            Ok(path) => {
+                println!("✓ Found Claude at: {}", path.display());
+                assert!(path.exists());
+            }
+            Err(e) => {
+                panic!("Claude not found in PATH. Error: {}. Make sure Claude is installed and in PATH.", e);
+            }
+        }
     }
 }

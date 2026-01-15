@@ -176,8 +176,17 @@ impl State {
     fn detect_available_providers(&mut self) {
         self.available_providers.clear();
 
-        // Check for Claude
-        if is_cli_available("claude") {
+        // Check for Claude Code
+        // First check if user has custom path in config
+        if let Some(custom_path) = self.config.providers.get("claude").and_then(|p| p.path.as_ref()) {
+            if is_cli_available(custom_path) {
+                self.available_providers.push(ProviderInfo {
+                    name: "Claude Code".to_string(),
+                    available: true,
+                    cli_command: "claude".to_string(),
+                });
+            }
+        } else if which::which("claude").is_ok() {
             self.available_providers.push(ProviderInfo {
                 name: "Claude Code".to_string(),
                 available: true,
@@ -186,7 +195,15 @@ impl State {
         }
 
         // Check for Aider
-        if is_cli_available("aider") {
+        if let Some(custom_path) = self.config.providers.get("aider").and_then(|p| p.path.as_ref()) {
+            if is_cli_available(custom_path) {
+                self.available_providers.push(ProviderInfo {
+                    name: "Aider".to_string(),
+                    available: true,
+                    cli_command: "aider".to_string(),
+                });
+            }
+        } else if which::which("aider").is_ok() {
             self.available_providers.push(ProviderInfo {
                 name: "Aider".to_string(),
                 available: true,
@@ -194,8 +211,16 @@ impl State {
             });
         }
 
-        // Check for GitHub Copilot
-        if is_cli_available_with_args("gh", &["copilot", "--help"]) {
+        // Check for GitHub Copilot (compound command - check gh first, then copilot subcommand)
+        if let Some(custom_path) = self.config.providers.get("copilot").and_then(|p| p.path.as_ref()) {
+            if is_cli_available_with_args(custom_path, &["copilot", "--help"]) {
+                self.available_providers.push(ProviderInfo {
+                    name: "GitHub Copilot".to_string(),
+                    available: true,
+                    cli_command: "gh copilot".to_string(),
+                });
+            }
+        } else if which::which("gh").is_ok() && is_cli_available_with_args("gh", &["copilot", "--help"]) {
             self.available_providers.push(ProviderInfo {
                 name: "GitHub Copilot".to_string(),
                 available: true,
@@ -203,13 +228,39 @@ impl State {
             });
         }
 
-        // Check for Amazon Q
-        if is_cli_available("q") {
+        // Check for Amazon Q Developer
+        if let Some(custom_path) = self.config.providers.get("q").and_then(|p| p.path.as_ref()) {
+            if is_cli_available(custom_path) {
+                self.available_providers.push(ProviderInfo {
+                    name: "Amazon Q Developer".to_string(),
+                    available: true,
+                    cli_command: "q".to_string(),
+                });
+            }
+        } else if which::which("q").is_ok() {
             self.available_providers.push(ProviderInfo {
                 name: "Amazon Q Developer".to_string(),
                 available: true,
                 cli_command: "q".to_string(),
             });
+        }
+
+        // Check for any custom providers defined in config
+        for (key, provider_config) in &self.config.providers {
+            // Skip built-in providers (already checked above)
+            if matches!(key.as_str(), "claude" | "aider" | "copilot" | "q") {
+                continue;
+            }
+
+            if let Some(custom_path) = &provider_config.path {
+                if is_cli_available(custom_path) {
+                    self.available_providers.push(ProviderInfo {
+                        name: provider_config.name.clone().unwrap_or_else(|| key.clone()),
+                        available: true,
+                        cli_command: custom_path.clone(),
+                    });
+                }
+            }
         }
     }
 

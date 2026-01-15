@@ -124,7 +124,38 @@ prev_hunk = "k"
 accept_hunk = "y"
 reject_hunk = "n"
 quit = "q"
+
+# Custom provider paths (optional)
+# Useful if your AI tools are not in PATH or you want to use specific versions
+[providers.claude]
+enabled = true
+# path = "/opt/homebrew/bin/claude"  # Optional: custom path
+
+[providers.aider]
+enabled = true
+# path = "/usr/local/bin/aider"
+
+[providers.copilot]
+enabled = true
+# path = "/usr/local/bin/gh"
+
+# Add custom AI providers
+[providers.my_custom_ai]
+enabled = true
+name = "My Custom AI"
+path = "/path/to/my/ai/tool"
+parser = "unified_diff"  # or "code_blocks", "json", "regex"
 ```
+
+### Provider Detection
+
+ZCode automatically detects installed AI providers using the following methods:
+
+1. **PATH Detection**: Uses the `which` crate to find executables in your system PATH
+2. **Custom Paths**: Checks for custom paths defined in `config.toml`
+3. **Cross-Platform**: Works on macOS, Linux, and Windows
+
+If a provider is not detected automatically, you can specify its path in the config file.
 
 ## Usage
 

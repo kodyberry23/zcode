@@ -22,6 +22,7 @@ unicode-width = "0.1"
 textwrap = "0.16"
 regex = "1.10"
 dirs = "5.0"
+which = "8.0"
 
 [profile.release]
 lto = true
