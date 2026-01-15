@@ -42,8 +42,45 @@ pub trait Renderer {
 pub struct ProviderSelectRenderer;
 
 impl Renderer for ProviderSelectRenderer {
-    fn render(&self, state: &State, _ctx: &RenderContext) {
-        print!("ProviderSelect mode not yet implemented");
+    fn render(&self, state: &State, ctx: &RenderContext) {
+        use crate::ui::components::{Footer, ProviderMenu};
+
+        // Clear screen and move cursor to top
+        print!("\x1b[2J\x1b[H");
+
+        // Header
+        let title = "  ZCode │ Select AI Provider";
+        let padding = ctx.cols.saturating_sub(title.len());
+        println!(
+            "{}{}{}{}{}",
+            ctx.colors.header_bg,
+            ctx.colors.header_fg,
+            title,
+            " ".repeat(padding),
+            crate::ui::RESET
+        );
+
+        println!(); // Spacer
+
+        // Provider menu
+        ProviderMenu::render(
+            &state.available_providers,
+            state.selected_provider_idx,
+            &ctx.colors,
+            ctx.rows,
+            ctx.cols,
+        );
+
+        // Move to bottom for footer
+        let footer_row = ctx.rows.saturating_sub(1);
+        print!("\x1b[{};1H", footer_row);
+
+        // Footer with keybindings
+        Footer::render(
+            &ctx.colors,
+            ctx.cols,
+            "j/k: navigate │ Enter: select │ q: quit",
+        );
     }
 }
 

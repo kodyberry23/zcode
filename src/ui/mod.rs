@@ -66,3 +66,13 @@ pub fn center_text(text: &str, width: usize) -> String {
         )
     }
 }
+
+/// Clear the screen and move cursor to top-left
+pub fn clear_screen() {
+    print!("\x1b[2J\x1b[H");
+}
+
+/// Move cursor to a specific position (1-indexed)
+pub fn move_cursor(row: usize, col: usize) {
+    print!("\x1b[{};{}H", row, col);
+}

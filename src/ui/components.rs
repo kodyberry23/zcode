@@ -92,19 +92,26 @@ impl ProviderMenu {
         providers: &[ProviderInfo],
         selected_idx: usize,
         colors: &Colors,
-        rows: usize,
+        _rows: usize,
         cols: usize,
     ) {
         if providers.is_empty() {
+            println!();
             println!(
-                "{}No AI providers detected. Please install Claude Code, Aider, GitHub Copilot, or Amazon Q.{}",
+                "{}  No AI providers detected.{}",
                 colors.error_fg, RESET
             );
+            println!();
+            println!("  Please install one of the following:");
+            println!("    - Claude Code (claude)");
+            println!("    - Aider (aider)");
+            println!("    - GitHub Copilot (gh copilot)");
+            println!("    - Amazon Q Developer (q)");
             return;
         }
 
         println!(
-            "{}{}Select an AI Provider:{}\\n",
+            "{}{}  Select an AI Provider:\n{}",
             colors.header_fg, BOLD, RESET
         );
 
@@ -121,8 +128,15 @@ impl ProviderMenu {
             };
 
             println!(
-                "{}{} {} {} {} {}{}",
-                bg, marker, status_icon, provider.name, provider.cli_command, fg, RESET
+                "{}  {} {} {}  {}({}){}{}",
+                bg,
+                marker,
+                status_icon,
+                provider.name,
+                DIM,
+                provider.cli_command,
+                RESET,
+                if is_selected { RESET } else { "" }
             );
         }
     }
