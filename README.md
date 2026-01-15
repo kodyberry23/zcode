@@ -65,31 +65,87 @@ cargo build --release --target wasm32-wasip1
 
 ### Add to Zellij
 
-1. Copy the compiled plugin to your Zellij plugins directory:
-   ```bash
-   mkdir -p ~/.config/zellij/plugins
-   cp target/wasm32-wasip1/release/zcode.wasm ~/.config/zellij/plugins/
-   ```
+First, copy the compiled plugin to your Zellij plugins directory:
 
-2. Add to your `zellij` layout file or enable via configuration:
-   ```yaml
-   layout:
-     panes:
-       - plugin:
-           location: "zcode"
-   ```
+```bash
+mkdir -p ~/.config/zellij/plugins
+cp target/wasm32-wasip1/release/zcode.wasm ~/.config/zellij/plugins/
+```
+
+Then, choose one of the following methods to load the plugin (see [Zellij Plugin Loading Documentation](https://zellij.dev/documentation/plugin-loading.html)):
+
+#### Method 1: Keybinding (Recommended)
+
+Add to `~/.config/zellij/config.kdl`:
+
+```kdl
+keybindings {
+    normal {
+        bind "Ctrl z" {
+            LaunchOrFocusPlugin "file:~/.config/zellij/plugins/zcode.wasm" {
+                floating true
+            }
+        }
+    }
+}
+```
+
+Now press `Ctrl+z` to open ZCode in a floating pane.
+
+#### Method 2: Load on Startup
+
+Add to `~/.config/zellij/config.kdl`:
+
+```kdl
+load_plugins {
+    file:~/.config/zellij/plugins/zcode.wasm
+}
+```
+
+The plugin will load automatically when you start Zellij.
+
+#### Method 3: Custom Layout
+
+Create `~/.config/zellij/layouts/zcode.kdl`:
+
+```kdl
+layout {
+    pane size=1 borderless=true {
+        plugin location="file:~/.config/zellij/plugins/zcode.wasm"
+    }
+    pane split_direction="vertical" {
+        pane
+    }
+}
+```
+
+Then launch with:
+
+```bash
+zellij --layout zcode
+```
+
+#### Method 4: Plugin Manager
+
+Press `Ctrl+o` then `p` to open the plugin manager and load the plugin interactively.
 
 ## Quick Start
 
+### Load the Plugin
+
+If you've set up the keybinding method (Method 1 above), press `Ctrl+z` to open ZCode.
+
+Alternatively, if using the `load_plugins` method, ZCode will open automatically when you start Zellij.
+
 ### Basic Workflow
 
-1. **Open the Plugin**
-   - Launch ZCode in your Zellij session
-   - Select your preferred AI provider
+1. **Select AI Provider**
+   - Use `j`/`k` to navigate through available providers
+   - Press `Enter` to select your preferred AI provider (e.g., Claude Code)
 
 2. **Enter Your Prompt**
    - Type your code modification request
-   - Press `Enter` to submit
+   - Press `Ctrl+Enter` to submit your prompt
 
 3. **Review Changes**
    - Navigate through diffs with `j`/`k` (next/prev hunk)
