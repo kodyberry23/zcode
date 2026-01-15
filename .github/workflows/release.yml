@@ -1,0 +1,67 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'  # Triggers on version tags like v0.1.0, v1.0.0
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-and-release:
+    name: Build and Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Required to create releases
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-wasip1
+
+      - name: Cache cargo registry
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache cargo index
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache cargo build (wasm)
+        uses: actions/cache@v3
+        with:
+          path: target/wasm32-wasip1
+          key: ${{ runner.os }}-cargo-wasm-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build WASM plugin
+        run: cargo build --release --target wasm32-wasip1
+
+      - name: Get version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ZCode ${{ steps.version.outputs.VERSION }}
+          body: |
+            ## ZCode ${{ steps.version.outputs.VERSION }}
+
+            ### Installation
+
+            1. Download `zcode.wasm` from the assets below
+            2. Copy to `~/.config/zellij/plugins/`
+            3. Add to your Zellij config (see [README](https://github.com/${{ github.repository }}) for details)
+
+            ### What's Changed
+
+            See the [commit history](https://github.com/${{ github.repository }}/commits/${{ steps.version.outputs.VERSION }}) for changes.
+          files: |
+            target/wasm32-wasip1/release/zcode.wasm
+          fail_on_unmatched_files: true

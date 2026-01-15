@@ -63,13 +63,29 @@ cargo build --release --target wasm32-wasip1
 # The plugin will be at: target/wasm32-wasip1/release/zcode.wasm
 ```
 
+### Download Pre-built Plugin
+
+Alternatively, download the latest pre-built `zcode.wasm` from the [Releases page](https://github.com/kodyberry23/zcode/releases):
+
+```bash
+# Download the latest release
+cd ~/.config/zellij/plugins
+wget https://github.com/kodyberry23/zcode/releases/download/v0.1.0/zcode.wasm
+
+# Or using curl
+curl -L -O https://github.com/kodyberry23/zcode/releases/download/v0.1.0/zcode.wasm
+```
+
+(Replace `v0.1.0` with the latest version)
+
 ### Add to Zellij
 
-First, copy the compiled plugin to your Zellij plugins directory:
+First, ensure the plugin is in your Zellij plugins directory:
 
 ```bash
 mkdir -p ~/.config/zellij/plugins
-cp target/wasm32-wasip1/release/zcode.wasm ~/.config/zellij/plugins/
+# If building from source, copy from target directory
+# If downloading, the above download step already places it correctly
 ```
 
 Then, choose one of the following methods to load the plugin (see [Zellij Plugin Loading Documentation](https://zellij.dev/documentation/plugin-loading.html)):
