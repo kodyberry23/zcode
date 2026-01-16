@@ -3,13 +3,39 @@
 //! This module defines the core data types and state machine for the ZCode plugin.
 //! It manages the application's modes, user interactions, and the flow between
 //! prompting, diff review, and file application.
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::PathBuf;
 
 use crate::config::Config;
 use crate::error::ErrorDisplay;
 use crate::providers::AIProvider;
 use crate::session::SessionManager;
+use chrono::{DateTime, Utc};
+use ratatui::widgets::ListState;
+use serde::{Deserialize, Serialize};
+use std::time::Instant;
+
+/// State of provider detection process
+#[derive(Debug, Clone, PartialEq, Default)]
+pub enum DetectionState {
+    /// Detection has not started yet
+    #[default]
+    NotStarted,
+    /// Detection is in progress
+    InProgress,
+    /// Detection has completed
+    Completed,
+}
+
+/// State of prompt execution
+#[derive(Debug, Clone, PartialEq, Default)]
+pub enum ExecutionState {
+    /// No prompt is being executed
+    #[default]
+    Idle,
+    /// Waiting for async command result
+    WaitingForResult,
+}
 
 /// Request to send to an AI provider
 #[derive(Debug, Clone)]
@@ -77,6 +103,233 @@ pub enum ChangeTag {
     Delete,
 }
 
+/// A proposed change to a file (NOT yet applied)
+#[derive(Debug, Clone)]
+pub struct ProposedChange {
+    pub id: usize,
+    pub file_path: PathBuf,
+    pub original_content: String, // What's currently on disk
+    pub proposed_content: String, // What AI suggests
+    pub line_decorations: Vec<LineDecoration>,
+    pub status: ChangeStatus,
+}
+
+/// Visual decoration for a single line
+#[derive(Debug, Clone)]
+pub struct LineDecoration {
+    pub line_number: usize,
+    pub decoration_type: DecorationType,
+    pub original_text: Option<String>, // For deletions/modifications
+    pub new_text: Option<String>,      // For additions/modifications
+    pub accepted: Option<bool>, // None = pending, Some(true) = accepted, Some(false) = rejected
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum DecorationType {
+    Addition,     // New line (green background, virtual text)
+    Deletion,     // Removed line (strikethrough, dimmed)
+    Modification, // Changed line (strikethrough old + virtual text new)
+    Context,      // Unchanged line (for context)
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ChangeStatus {
+    Pending,       // Waiting for user review
+    PartialAccept, // Some lines accepted, some pending
+    Accepted,      // All accepted, ready to apply
+    Rejected,      // All rejected
+    Applied,       // Written to disk
+}
+
+/// State for the overlay diff viewer
+pub struct OverlayDiffState {
+    pub proposed_changes: Vec<ProposedChange>,
+    pub current_change_idx: usize,
+    pub current_line_idx: usize,
+    pub show_context_lines: usize,
+    pub folded_unchanged: bool, // Collapse unchanged regions
+}
+
+impl Default for OverlayDiffState {
+    fn default() -> Self {
+        Self {
+            proposed_changes: Vec::new(),
+            current_change_idx: 0,
+            current_line_idx: 0,
+            show_context_lines: 3,
+            folded_unchanged: false,
+        }
+    }
+}
+
+/// Status information for real-time feedback
+pub struct StatusInfo {
+    pub is_working: bool,
+    pub current_task: String,
+    pub progress_percent: Option<u8>,
+    pub tokens_sent: usize,
+    pub tokens_received: usize,
+    pub cost_estimate: f64,
+    pub total_cost: f64,
+    pub session_cost: f64,
+    pub provider: String,
+    pub model: String,
+    pub eta_seconds: Option<u64>,
+    pub can_cancel: bool,
+    pub start_time: Option<Instant>,
+}
+
+impl Default for StatusInfo {
+    fn default() -> Self {
+        Self {
+            is_working: false,
+            current_task: String::new(),
+            progress_percent: None,
+            tokens_sent: 0,
+            tokens_received: 0,
+            cost_estimate: 0.0,
+            total_cost: 0.0,
+            session_cost: 0.0,
+            provider: String::new(),
+            model: String::new(),
+            eta_seconds: None,
+            can_cancel: false,
+            start_time: None,
+        }
+    }
+}
+
+/// Sidebar state for file preview
+pub struct SidebarState {
+    pub visible: bool,
+    pub pinned_file: Option<PathBuf>,
+    pub scroll_offset: usize,
+    pub highlighted_lines: Vec<usize>,
+    pub syntax_highlighting: bool,
+    pub current_file_indicator: Option<String>,
+}
+
+impl Default for SidebarState {
+    fn default() -> Self {
+        Self {
+            visible: false,
+            pinned_file: None,
+            scroll_offset: 0,
+            highlighted_lines: Vec::new(),
+            syntax_highlighting: true,
+            current_file_indicator: None,
+        }
+    }
+}
+
+/// UI display preferences
+pub struct UIPreferences {
+    /// Whether to show the chat history panel
+    pub show_chat_history: bool,
+    /// Whether to show the sidebar
+    pub show_sidebar: bool,
+}
+
+impl Default for UIPreferences {
+    fn default() -> Self {
+        Self {
+            // Show chat history by default so the conversation is front and center.
+            show_chat_history: true,
+            show_sidebar: false,
+        }
+    }
+}
+
+/// A chat message in the conversation history
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChatMessage {
+    pub id: usize,
+    pub timestamp: DateTime<Utc>,
+    pub is_user: bool,
+    pub content: String,
+    pub token_count: Option<usize>,
+    pub cost: Option<f64>,
+    pub status: MessageStatus,
+    pub associated_files: Vec<PathBuf>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum MessageStatus {
+    Success,
+    Error,
+    Pending,
+    Working,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum MessageFilter {
+    Error,
+    Success,
+    All,
+}
+
+/// Chat history with navigation state
+pub struct ChatHistory {
+    pub messages: Vec<ChatMessage>,
+    pub next_id: usize,
+    pub scroll_state: ListState,
+    pub search_query: Option<String>,
+    pub filter: Option<MessageFilter>,
+}
+
+impl Default for ChatHistory {
+    fn default() -> Self {
+        Self {
+            messages: Vec::new(),
+            next_id: 1,
+            scroll_state: ListState::default(),
+            search_query: None,
+            filter: None,
+        }
+    }
+}
+
+impl ChatHistory {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn add_message(&mut self, message: ChatMessage) {
+        self.messages.push(message);
+    }
+
+    pub fn get_message(&self, id: usize) -> Option<&ChatMessage> {
+        self.messages.iter().find(|m| m.id == id)
+    }
+
+    pub fn filtered_messages(&self) -> Vec<&ChatMessage> {
+        let mut filtered: Vec<&ChatMessage> = self.messages.iter().collect();
+
+        // Apply filter
+        if let Some(ref filter) = self.filter {
+            filtered = filtered
+                .into_iter()
+                .filter(|msg| match filter {
+                    MessageFilter::Error => msg.status == MessageStatus::Error,
+                    MessageFilter::Success => msg.status == MessageStatus::Success,
+                    MessageFilter::All => true,
+                })
+                .collect();
+        }
+
+        // Apply search query
+        if let Some(ref query) = self.search_query {
+            let query_lower = query.to_lowercase();
+            filtered = filtered
+                .into_iter()
+                .filter(|msg| msg.content.to_lowercase().contains(&query_lower))
+                .collect();
+        }
+
+        filtered
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Mode {
     ProviderSelect,
@@ -85,6 +338,9 @@ pub enum Mode {
     DiffReview,
     Confirmation,
     Error,
+    ChatHistory,
+    CommandMode,
+    Help,
 }
 
 #[derive(Debug, Clone)]
@@ -92,6 +348,8 @@ pub struct ProviderInfo {
     pub name: String,
     pub available: bool,
     pub cli_command: String,
+    /// Config key for looking up provider config (e.g., "claude", "q", or custom key)
+    pub config_key: String,
 }
 
 /// Main plugin state
@@ -100,6 +358,9 @@ pub struct State {
     pub provider: Option<Box<dyn AIProvider>>,
     pub available_providers: Vec<ProviderInfo>,
     pub selected_provider_idx: usize,
+    pub pending_detections: HashSet<String>,
+    pub detection_state: DetectionState,
+    pub execution_state: ExecutionState,
 
     // UI state
     pub mode: Mode,
@@ -112,6 +373,7 @@ pub struct State {
     // Input
     pub prompt_buffer: String,
     pub cursor_position: usize,
+    pub command_buffer: String,
 
     // Session management
     pub sessions: SessionManager,
@@ -130,6 +392,21 @@ pub struct State {
 
     // File operations result
     pub last_apply_result: Option<crate::file_ops::ApplyResult>,
+
+    // Chat history
+    pub chat_history: ChatHistory,
+
+    // Overlay diff state
+    pub overlay_diff_state: OverlayDiffState,
+
+    // Status tracking
+    pub status_info: StatusInfo,
+
+    // Sidebar state
+    pub sidebar_state: SidebarState,
+
+    // UI preferences
+    pub ui_prefs: UIPreferences,
 }
 
 impl Default for State {
@@ -138,6 +415,9 @@ impl Default for State {
             provider: None,
             available_providers: Vec::new(),
             selected_provider_idx: 0,
+            pending_detections: HashSet::new(),
+            detection_state: DetectionState::default(),
+            execution_state: ExecutionState::default(),
             mode: Mode::ProviderSelect,
             hunks: Vec::new(),
             selected_hunk: 0,
@@ -146,165 +426,59 @@ impl Default for State {
             viewport_cols: 80,
             prompt_buffer: String::new(),
             cursor_position: 0,
+            command_buffer: String::new(),
             sessions: SessionManager::default(),
             pending_changes: HashMap::new(),
             last_error: None,
             permissions_granted: false,
             config: Config::default(),
             last_apply_result: None,
+            chat_history: ChatHistory::new(),
+            overlay_diff_state: OverlayDiffState::default(),
+            status_info: StatusInfo::default(),
+            sidebar_state: SidebarState::default(),
+            ui_prefs: UIPreferences::default(),
         }
     }
 }
 
 impl State {
-    pub fn initialize(
-        &mut self,
-        _configuration: &std::collections::BTreeMap<String, String>,
-    ) -> anyhow::Result<()> {
-        // Load configuration
-        self.config = Config::load().unwrap_or_default();
+    pub fn initialize(&mut self, _configuration: &BTreeMap<String, String>) -> anyhow::Result<()> {
+        // Load configuration with error reporting
+        self.config = match Config::load() {
+            Ok(config) => config,
+            Err(e) => {
+                self.last_error = Some(ErrorDisplay {
+                    title: "Config Warning".to_string(),
+                    message: format!("Using defaults: {}", e),
+                    help_url: None,
+                });
+                Config::default()
+            }
+        };
 
-        // Load sessions
-        self.sessions = SessionManager::load().unwrap_or_default();
-
-        // Detect available providers
-        self.detect_available_providers();
+        // Load sessions with error reporting
+        self.sessions = match SessionManager::load() {
+            Ok(sessions) => sessions,
+            Err(e) => {
+                // Don't overwrite config error, just log to stderr if we can
+                if self.last_error.is_none() {
+                    self.last_error = Some(ErrorDisplay {
+                        title: "Session Warning".to_string(),
+                        message: format!("Using defaults: {}", e),
+                        help_url: None,
+                    });
+                }
+                SessionManager::default()
+            }
+        };
 
         Ok(())
     }
 
-    fn detect_available_providers(&mut self) {
-        self.available_providers.clear();
+    // Provider detection is now handled by App struct
 
-        // Check for Claude Code
-        // First check if user has custom path in config
-        if let Some(provider_config) = self.config.providers.get("claude") {
-            if provider_config.enabled {
-                if let Some(custom_path) = &provider_config.path {
-                    // Trust user-provided paths without verification (WASM sandbox may block execution)
-                    self.available_providers.push(ProviderInfo {
-                        name: "Claude Code".to_string(),
-                        available: true,
-                        cli_command: custom_path.clone(),
-                    });
-                } else {
-                    // Try auto-detection only if no custom path provided
-                    if which::which("claude").is_ok() {
-                        self.available_providers.push(ProviderInfo {
-                            name: "Claude Code".to_string(),
-                            available: true,
-                            cli_command: "claude".to_string(),
-                        });
-                    }
-                }
-            }
-        } else {
-            // No config entry, try auto-detection
-            if which::which("claude").is_ok() {
-                self.available_providers.push(ProviderInfo {
-                    name: "Claude Code".to_string(),
-                    available: true,
-                    cli_command: "claude".to_string(),
-                });
-            }
-        }
-
-        // Check for Aider
-        if let Some(provider_config) = self.config.providers.get("aider") {
-            if provider_config.enabled {
-                if let Some(custom_path) = &provider_config.path {
-                    self.available_providers.push(ProviderInfo {
-                        name: "Aider".to_string(),
-                        available: true,
-                        cli_command: custom_path.clone(),
-                    });
-                } else if which::which("aider").is_ok() {
-                    self.available_providers.push(ProviderInfo {
-                        name: "Aider".to_string(),
-                        available: true,
-                        cli_command: "aider".to_string(),
-                    });
-                }
-            }
-        } else if which::which("aider").is_ok() {
-            self.available_providers.push(ProviderInfo {
-                name: "Aider".to_string(),
-                available: true,
-                cli_command: "aider".to_string(),
-            });
-        }
-
-        // Check for GitHub Copilot
-        if let Some(provider_config) = self.config.providers.get("copilot") {
-            if provider_config.enabled {
-                if let Some(custom_path) = &provider_config.path {
-                    self.available_providers.push(ProviderInfo {
-                        name: "GitHub Copilot".to_string(),
-                        available: true,
-                        cli_command: custom_path.clone(),
-                    });
-                } else if which::which("gh").is_ok() {
-                    self.available_providers.push(ProviderInfo {
-                        name: "GitHub Copilot".to_string(),
-                        available: true,
-                        cli_command: "gh".to_string(),
-                    });
-                }
-            }
-        } else if which::which("gh").is_ok() {
-            self.available_providers.push(ProviderInfo {
-                name: "GitHub Copilot".to_string(),
-                available: true,
-                cli_command: "gh".to_string(),
-            });
-        }
-
-        // Check for Amazon Q Developer
-        if let Some(provider_config) = self.config.providers.get("q") {
-            if provider_config.enabled {
-                if let Some(custom_path) = &provider_config.path {
-                    self.available_providers.push(ProviderInfo {
-                        name: "Amazon Q Developer".to_string(),
-                        available: true,
-                        cli_command: custom_path.clone(),
-                    });
-                } else if which::which("q").is_ok() {
-                    self.available_providers.push(ProviderInfo {
-                        name: "Amazon Q Developer".to_string(),
-                        available: true,
-                        cli_command: "q".to_string(),
-                    });
-                }
-            }
-        } else if which::which("q").is_ok() {
-            self.available_providers.push(ProviderInfo {
-                name: "Amazon Q Developer".to_string(),
-                available: true,
-                cli_command: "q".to_string(),
-            });
-        }
-
-        // Check for any custom providers defined in config
-        for (key, provider_config) in &self.config.providers {
-            // Skip built-in providers (already checked above)
-            if matches!(key.as_str(), "claude" | "aider" | "copilot" | "q") {
-                continue;
-            }
-
-            if provider_config.enabled {
-                if let Some(custom_path) = &provider_config.path {
-                    self.available_providers.push(ProviderInfo {
-                        name: provider_config
-                            .name
-                            .clone()
-                            .unwrap_or_else(|| key.clone()),
-                        available: true,
-                        cli_command: custom_path.clone(),
-                    });
-                }
-            }
-        }
-    }
+    // Command result handling is now in App struct
 
     /// Apply accepted hunks to files
     pub fn apply_changes(&mut self) -> anyhow::Result<crate::file_ops::ApplyResult> {
@@ -321,7 +495,11 @@ impl State {
         crate::file_ops::apply_accepted_hunks(&accepted_hunks, &self.pending_changes, &self.config)
     }
 
-    pub fn handle_key(&mut self, key: &zellij_tile::prelude::KeyWithModifier) -> bool {
+    // Prompt execution is now handled by App struct
+
+    // Key handling is now in App struct
+    #[allow(dead_code)]
+    pub fn handle_key_legacy(&mut self, key: &crossterm::event::KeyEvent) -> bool {
         use crate::input::modes::*;
         use crate::input::{Action, InputHandler, InputResult};
 
@@ -341,6 +519,20 @@ impl State {
             Mode::Confirmation => {
                 let mut handler = ConfirmationHandler::new();
                 handler.handle_key(key, self)
+            }
+            Mode::ChatHistory => {
+                // For now, handle like PromptEntry
+                let mut handler = PromptEntryHandler::new();
+                handler.handle_key(key, self)
+            }
+            Mode::CommandMode => {
+                // Special handling for command mode - consume the key
+                InputResult::Consumed
+            }
+            Mode::Help => {
+                // Press any key to close help - return to PromptEntry
+                self.mode = Mode::PromptEntry;
+                return true;
             }
             Mode::Error => {
                 self.last_error = None;
@@ -394,6 +586,9 @@ impl State {
             }
             Action::SelectProvider(idx) => {
                 if *idx < self.available_providers.len() {
+                    let provider_info = &self.available_providers[*idx];
+                    let config = self.config.providers.get(&provider_info.config_key);
+                    self.provider = crate::providers::create_provider(&provider_info.name, config);
                     self.selected_provider_idx = *idx;
                     self.mode = Mode::PromptEntry;
                     true
@@ -411,8 +606,7 @@ impl State {
                     self.mode = Mode::Error;
                     true
                 } else {
-                    // TODO: Send prompt to AI provider
-                    self.mode = Mode::Processing;
+                    // Prompt execution is now handled by App struct
                     true
                 }
             }
@@ -449,20 +643,4 @@ impl State {
             }
         }
     }
-}
-
-fn is_cli_available(cmd: &str) -> bool {
-    std::process::Command::new(cmd)
-        .arg("--version")
-        .output()
-        .map(|output| output.status.success())
-        .unwrap_or(false)
-}
-
-fn is_cli_available_with_args(cmd: &str, args: &[&str]) -> bool {
-    std::process::Command::new(cmd)
-        .args(args)
-        .output()
-        .map(|output| output.status.success())
-        .unwrap_or(false)
 }

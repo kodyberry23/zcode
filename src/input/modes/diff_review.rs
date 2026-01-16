@@ -2,13 +2,13 @@
 
 use crate::input::handler::{key_helpers, Action, InputHandler, InputResult};
 use crate::state::{HunkStatus, Mode, State};
-use zellij_tile::prelude::{BareKey, KeyWithModifier};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 /// Input handler for diff review mode
 pub struct DiffReviewHandler;
 
 impl InputHandler for DiffReviewHandler {
-    fn handle_key(&mut self, key: &KeyWithModifier, state: &mut State) -> InputResult {
+    fn handle_key(&mut self, key: &KeyEvent, state: &mut State) -> InputResult {
         use key_helpers::*;
 
         // Navigation
@@ -18,10 +18,10 @@ impl InputHandler for DiffReviewHandler {
         if is_char(key, 'k') {
             return InputResult::Action(Action::Previous);
         }
-        if is_char(key, 'J') && has_modifier(key, zellij_tile::prelude::KeyModifier::Shift) {
+        if is_char(key, 'J') && has_modifier(key, KeyModifiers::SHIFT) {
             return InputResult::Action(Action::NextFile);
         }
-        if is_char(key, 'K') && has_modifier(key, zellij_tile::prelude::KeyModifier::Shift) {
+        if is_char(key, 'K') && has_modifier(key, KeyModifiers::SHIFT) {
             return InputResult::Action(Action::PreviousFile);
         }
 
@@ -29,7 +29,7 @@ impl InputHandler for DiffReviewHandler {
         if is_char(key, 'g') {
             return InputResult::Action(Action::Beginning);
         }
-        if is_char(key, 'G') && has_modifier(key, zellij_tile::prelude::KeyModifier::Shift) {
+        if is_char(key, 'G') && has_modifier(key, KeyModifiers::SHIFT) {
             return InputResult::Action(Action::Beginning);
         }
 
@@ -40,15 +40,15 @@ impl InputHandler for DiffReviewHandler {
         if is_char(key, 'r') {
             return InputResult::Action(Action::RejectCurrent);
         }
-        if is_char(key, 'A') && has_modifier(key, zellij_tile::prelude::KeyModifier::Shift) {
+        if is_char(key, 'A') && has_modifier(key, KeyModifiers::SHIFT) {
             return InputResult::Action(Action::AcceptAll);
         }
-        if is_char(key, 'R') && has_modifier(key, zellij_tile::prelude::KeyModifier::Shift) {
+        if is_char(key, 'R') && has_modifier(key, KeyModifiers::SHIFT) {
             return InputResult::Action(Action::RejectAll);
         }
 
         // Apply changes
-        if is_key(key, BareKey::Enter) {
+        if is_key(key, KeyCode::Enter) {
             return InputResult::Action(Action::ApplyChanges);
         }
 

@@ -1,15 +1,31 @@
 // src/providers/claude.rs - Claude Code provider implementation
 
-use anyhow::{Context, Result};
-use std::process::Command;
+use anyhow::Result;
 
-use super::AIProvider;
+use super::{AIProvider, ParserType};
+use crate::config::ProviderConfig;
 use crate::parsers::parse_claude_json;
-use crate::state::{FileChange, PromptRequest, ProviderResponse};
+use crate::state::{FileChange, PromptRequest};
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ClaudeProvider {
     pub session_id: Option<String>,
+    /// Custom CLI path (if specified in config)
+    pub cli_path: Option<String>,
+}
+
+impl ClaudeProvider {
+    pub fn new(config: Option<&ProviderConfig>) -> Self {
+        Self {
+            session_id: None,
+            cli_path: config.and_then(|c| c.path.clone()),
+        }
+    }
+
+    pub fn with_session(mut self, session_id: String) -> Self {
+        self.session_id = Some(session_id);
+        self
+    }
 }
 
 impl AIProvider for ClaudeProvider {
@@ -18,57 +34,47 @@ impl AIProvider for ClaudeProvider {
     }
 
     fn cli_command(&self) -> &str {
-        "claude"
+        self.cli_path.as_deref().unwrap_or("claude")
     }
 
-    fn execute(&self, request: &PromptRequest) -> Result<ProviderResponse> {
-        let mut cmd = Command::new("claude");
-        cmd.args(["-p", &request.prompt, "--output-format", "json"]);
+    fn build_execute_args(&self, request: &PromptRequest) -> Vec<String> {
+        let mut args = vec![
+            "-p".to_string(),
+            request.prompt.clone(),
+            "--output-format".to_string(),
+            "json".to_string(),
+            "--allowedTools".to_string(),
+            "Read,Edit,Write".to_string(),
+        ];
 
-        if let Some(ref session) = self.session_id {
-            cmd.args(["--resume", session]);
+        if let Some(ref session) = request.session_id.as_ref().or(self.session_id.as_ref()) {
+            args.push("--resume".to_string());
+            args.push(session.to_string());
         }
 
-        cmd.args(["--allowedTools", "Read,Edit,Write"]);
-
-        let output = cmd.output().context("Failed to execute Claude CLI")?;
-
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            anyhow::bail!("Claude CLI failed: {}", stderr);
-        }
-
-        Ok(ProviderResponse {
-            raw_output: String::from_utf8_lossy(&output.stdout).to_string(),
-            exit_code: output.status.code().unwrap_or(-1),
-            stderr: String::from_utf8_lossy(&output.stderr).to_string(),
-        })
+        args
     }
 
     fn parse_file_changes(&self, output: &str) -> Result<Vec<FileChange>> {
         parse_claude_json(output)
     }
 
+    fn parser_type(&self) -> ParserType {
+        ParserType::ClaudeJson
+    }
+
     fn supports_sessions(&self) -> bool {
         true
     }
 
-    fn extract_session_id(&self, response: &ProviderResponse) -> Option<String> {
+    fn extract_session_id(&self, stdout: &str) -> Option<String> {
         // Parse session ID from Claude's JSON response
-        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&response.raw_output) {
+        if let Ok(json) = serde_json::from_str::<serde_json::Value>(stdout) {
             json.get("session_id")
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string())
         } else {
             None
         }
-    }
-
-    fn is_available(&self) -> bool {
-        Command::new("claude")
-            .arg("--version")
-            .output()
-            .map(|output| output.status.success())
-            .unwrap_or(false)
     }
 }

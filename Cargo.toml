@@ -2,14 +2,19 @@
 name = "zcode"
 version = "0.1.0"
 edition = "2021"
-description = "Zellij plugin for AI code assistant integration"
+description = "AI code assistant with interactive diff review"
 license = "MIT"
 
-# Zellij plugins are binary crates (use main.rs, not lib.rs)
-# This ensures the _start export is generated for WASM
-
 [dependencies]
-zellij-tile = "0.43.1"
+# TUI framework (Ratatui 0.30 with Crossterm backend)
+ratatui = "0.30"
+crossterm = { version = "0.28", features = ["event-stream"] }
+
+# Async runtime
+tokio = { version = "1", features = ["full", "sync"] }
+futures = "0.3"
+
+# Existing dependencies
 similar = "2.7"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -22,11 +27,21 @@ unicode-width = "0.1"
 textwrap = "0.16"
 regex = "1.10"
 dirs = "5.0"
-which = "8.0"
+atty = "0.2"
+
+# New dependencies for TUI enhancements
+# For Neovim RPC integration
+nvim-rs = { version = "0.7", features = ["use_tokio"] }
+async-trait = "0.1"
+tokio-util = { version = "0.7", features = ["compat"] }
+parity-tokio-ipc = "0.9"
+# For syntax highlighting in file preview
+syntect = "5.2"
+# For fuzzy search
+fuzzy-matcher = "0.3"
 
 [profile.release]
 lto = true
-opt-level = "z"
+opt-level = 3
 strip = true
 codegen-units = 1
-panic = "abort"

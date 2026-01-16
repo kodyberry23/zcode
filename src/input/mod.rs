@@ -17,10 +17,14 @@
 //! - [`keybindings`]: Key binding definitions and management
 //! - [`modes`]: Mode-specific input handlers
 
+pub mod command_mode;
 pub mod handler;
 pub mod keybindings;
+pub mod keymap;
 pub mod modes;
+pub mod parser;
 
+pub use command_mode::{execute_command, parse_command, Command, CommandError};
 pub use handler::{Action, InputHandler, InputResult};
 pub use keybindings::{KeyCombo, KeybindingMap};
 pub use modes::{

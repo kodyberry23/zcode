@@ -7,7 +7,9 @@ use std::path::PathBuf;
 
 use super::{atomic_write, reconstruct_file_content, BackupSet};
 use crate::config::Config;
-use crate::state::{ChangeType, FileChange, Hunk, HunkStatus};
+use crate::state::{
+    ChangeType, DecorationType, FileChange, Hunk, HunkStatus, LineDecoration, ProposedChange,
+};
 
 /// Result of applying hunks to files
 #[derive(Debug, Clone)]
@@ -116,6 +118,134 @@ fn apply_all_files(
             .context(format!("Failed to write file: {}", file_path.display()))?;
 
         files_modified.push(file_path.clone());
+    }
+
+    Ok(files_modified)
+}
+
+/// Apply overlay-based changes (line-by-line accept/reject)
+pub fn apply_overlay_changes(changes: &[ProposedChange], config: &Config) -> Result<ApplyResult> {
+    // Filter to only accepted changes
+    let accepted_changes: Vec<_> = changes
+        .iter()
+        .filter(|c| {
+            c.status == crate::state::ChangeStatus::Accepted
+                || c.status == crate::state::ChangeStatus::PartialAccept
+        })
+        .collect();
+
+    if accepted_changes.is_empty() {
+        return Err(anyhow!("No accepted changes to apply"));
+    }
+
+    // Prepare files to modify
+    let files_to_modify: Vec<PathBuf> = accepted_changes
+        .iter()
+        .map(|c| c.file_path.clone())
+        .collect();
+
+    // Create backups for all files (transaction model)
+    let backup_set = if config.general.create_backups {
+        BackupSet::create(&files_to_modify).context("Failed to create backups")?
+    } else {
+        BackupSet {
+            backups: HashMap::new(),
+            timestamp: String::new(),
+        }
+    };
+
+    let backups_created = backup_set.backup_paths();
+
+    // Apply changes to all files
+    let files_modified = match apply_all_overlay_files(&accepted_changes) {
+        Ok(modified) => modified,
+        Err(e) => {
+            // Rollback on failure
+            if config.general.create_backups {
+                let _ = backup_set.restore_all();
+            }
+            return Err(e).context("Failed to apply overlay changes");
+        }
+    };
+
+    Ok(ApplyResult {
+        files_modified,
+        backups_created,
+        hunks_applied: accepted_changes.len(),
+    })
+}
+
+/// Apply overlay changes to files
+fn apply_all_overlay_files(changes: &[&ProposedChange]) -> Result<Vec<PathBuf>> {
+    let mut files_modified = Vec::new();
+
+    for change in changes {
+        // Reconstruct file content from accepted line decorations
+        let mut lines: Vec<String> = change
+            .original_content
+            .lines()
+            .map(|s| s.to_string())
+            .collect();
+
+        // Process decorations in reverse order to maintain line numbers
+        let mut decorations: Vec<_> = change.line_decorations.iter().collect();
+        decorations.sort_by_key(|d| std::cmp::Reverse(d.line_number));
+
+        for dec in decorations {
+            match dec.decoration_type {
+                DecorationType::Deletion => {
+                    if dec.accepted == Some(true)
+                        && dec.line_number > 0
+                        && dec.line_number <= lines.len()
+                    {
+                        lines.remove(dec.line_number - 1);
+                    }
+                }
+                DecorationType::Addition => {
+                    if dec.accepted == Some(true) {
+                        if let Some(new_text) = &dec.new_text {
+                            if dec.line_number <= lines.len() {
+                                lines.insert(dec.line_number, new_text.clone());
+                            } else {
+                                lines.push(new_text.clone());
+                            }
+                        }
+                    }
+                }
+                DecorationType::Modification => {
+                    if dec.accepted == Some(true) {
+                        // Remove old line
+                        if dec.line_number > 0 && dec.line_number <= lines.len() {
+                            lines.remove(dec.line_number - 1);
+                        }
+                        // Add new line
+                        if let Some(new_text) = &dec.new_text {
+                            if dec.line_number <= lines.len() {
+                                lines.insert(dec.line_number, new_text.clone());
+                            } else {
+                                lines.push(new_text.clone());
+                            }
+                        }
+                    }
+                }
+                DecorationType::Context => {
+                    // Keep unchanged lines
+                }
+            }
+        }
+
+        let new_content = lines.join("\n");
+        if !new_content.ends_with('\n') && !change.original_content.ends_with('\n') {
+            // Preserve newline at end if original had it
+        }
+
+        // Write file atomically
+        atomic_write(&change.file_path, &new_content).context(format!(
+            "Failed to write file: {}",
+            change.file_path.display()
+        ))?;
+
+        files_modified.push(change.file_path.clone());
     }
 
     Ok(files_modified)

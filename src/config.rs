@@ -34,8 +34,11 @@ pub struct ProviderConfig {
     pub path: Option<String>,
     /// Optional custom name for the provider
     pub name: Option<String>,
-    /// Optional parser type (unified_diff, code_blocks, json, regex)
+    /// Optional parser type (unified_diff, code_blocks, json)
     pub parser: Option<String>,
+    /// Optional argument template for custom providers. Use {prompt} as placeholder.
+    /// Example: ["-p", "{prompt}", "--json"]
+    pub args_template: Option<Vec<String>>,
 }
 
 impl Default for ProviderConfig {
@@ -45,6 +48,7 @@ impl Default for ProviderConfig {
             path: None,
             name: None,
             parser: None,
+            args_template: None,
         }
     }
 }
@@ -59,6 +63,14 @@ pub struct GeneralConfig {
     pub create_backups: bool,
     pub confirm_before_apply: bool,
     pub context_lines: usize,
+
+    /// Enable Neovim integration (auto-connect when run in :terminal)
+    #[serde(default)]
+    pub neovim_integration: bool,
+
+    /// Auto-push overlays to Neovim when changes are generated
+    #[serde(default)]
+    pub auto_push_to_neovim: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -88,6 +100,16 @@ impl Config {
         } else {
             Ok(Self::default())
         }
+    }
+
+    pub fn save(&self) -> Result<()> {
+        let path = Self::config_path();
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        let content = toml::to_string_pretty(self)?;
+        std::fs::write(&path, content)?;
+        Ok(())
     }
 
     pub fn config_path() -> PathBuf {
@@ -192,23 +214,5 @@ parser = "unified_diff"
         assert_eq!(provider.path, None);
         assert_eq!(provider.name, None);
         assert_eq!(provider.parser, None);
-    }
-
-    #[test]
-    #[ignore] // Only run with --ignored flag
-    fn test_which_finds_claude() {
-        // This test verifies that the which crate can find Claude on the system
-        // It's ignored by default because it depends on the system having Claude installed
-        use which::which;
-
-        match which("claude") {
-            Ok(path) => {
-                println!("✓ Found Claude at: {}", path.display());
-                assert!(path.exists());
-            }
-            Err(e) => {
-                panic!("Claude not found in PATH. Error: {}. Make sure Claude is installed and in PATH.", e);
-            }
-        }
     }
 }

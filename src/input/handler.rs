@@ -1,7 +1,7 @@
 // src/input/handler.rs - Input handler trait and result types
 
 use crate::state::{Mode, State};
-use zellij_tile::prelude::KeyWithModifier;
+use crossterm::event::KeyEvent;
 
 /// Result of handling a key event
 #[derive(Debug, Clone, PartialEq)]
@@ -66,48 +66,60 @@ pub enum Action {
 /// Trait for handling keyboard input in different modes
 pub trait InputHandler {
     /// Handle a key event and return the result
-    fn handle_key(&mut self, key: &KeyWithModifier, state: &mut State) -> InputResult;
+    fn handle_key(&mut self, key: &KeyEvent, state: &mut State) -> InputResult;
 
     /// Get available keybindings for this handler
     fn keybindings(&self) -> Vec<String>;
 }
 
-/// Helper functions for key matching
+// Legacy trait for backward compatibility during migration
+#[allow(dead_code)]
+pub trait InputHandlerLegacy {
+    fn handle_key_legacy(&mut self, key: &KeyEvent, state: &mut State) -> InputResult;
+    fn keybindings(&self) -> Vec<String>;
+}
+
+/// Helper functions for key matching with Crossterm
 pub mod key_helpers {
-    use std::collections::BTreeSet;
-    use zellij_tile::prelude::{BareKey, KeyModifier, KeyWithModifier};
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
     /// Check if a key matches a specific character
-    pub fn is_char(key: &KeyWithModifier, c: char) -> bool {
-        if let BareKey::Char(ch) = key.bare_key {
+    pub fn is_char(key: &KeyEvent, c: char) -> bool {
+        if let KeyCode::Char(ch) = key.code {
             ch.eq_ignore_ascii_case(&c)
         } else {
             false
         }
     }
 
-    /// Check if a key matches a specific named key
-    pub fn is_key(key: &KeyWithModifier, target: BareKey) -> bool {
-        key.bare_key == target
+    /// Check if a key matches a specific key code
+    pub fn is_key(key: &KeyEvent, target: KeyCode) -> bool {
+        key.code == target
     }
 
     /// Check if a key has a specific modifier
-    pub fn has_modifier(key: &KeyWithModifier, modifier: KeyModifier) -> bool {
-        key.key_modifiers.contains(&modifier)
+    pub fn has_modifier(key: &KeyEvent, modifier: KeyModifiers) -> bool {
+        key.modifiers.contains(modifier)
     }
 
     /// Check if a key has any modifiers
-    pub fn has_any_modifier(key: &KeyWithModifier) -> bool {
-        !key.key_modifiers.is_empty()
+    pub fn has_any_modifier(key: &KeyEvent) -> bool {
+        !key.modifiers.is_empty()
     }
 
     /// Get all modifiers as a readable string
-    pub fn format_modifiers(modifiers: &BTreeSet<KeyModifier>) -> String {
-        modifiers
-            .iter()
-            .map(|m| format!("{:?}", m).to_uppercase())
-            .collect::<Vec<_>>()
-            .join("+")
+    pub fn format_modifiers(modifiers: KeyModifiers) -> String {
+        let mut parts = Vec::new();
+        if modifiers.contains(KeyModifiers::CONTROL) {
+            parts.push("CTRL");
+        }
+        if modifiers.contains(KeyModifiers::ALT) {
+            parts.push("ALT");
+        }
+        if modifiers.contains(KeyModifiers::SHIFT) {
+            parts.push("SHIFT");
+        }
+        parts.join("+")
     }
 }
 

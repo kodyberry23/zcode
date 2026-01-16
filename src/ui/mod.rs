@@ -1,29 +1,41 @@
 //! User interface components and rendering
 //!
-//! This module provides all UI elements and rendering logic for the plugin.
-//! It uses ANSI escape codes and Zellij's native UI components to render:
+//! This module provides all UI elements and rendering logic for the application.
+//! It uses Ratatui widgets and ANSI escape codes to render:
 //!
 //! - Diff viewer with scrolling and hunk navigation
 //! - Prompt entry dialog
 //! - Provider selection menu
 //! - Confirmation dialogs
 //! - Error messages
+//! - ASCII logo splash screen
 //!
 //! # Submodules
 //!
-//! - [`renderer`]: The `Renderable` trait and rendering context
-//! - [`components`]: Reusable UI components
-//! - [`diff_view`]: Diff-specific rendering logic
-//! - [`colors`]: Color schemes and ANSI escape codes
+//! - [`renderers`]: Ratatui-based rendering functions
+//! - [`colors`]: Color schemes and style definitions
+//! - [`layout`]: Layout helper functions
+//! - [`logo`]: ASCII logo rendering
 
+pub mod chat_history;
 pub mod colors;
-pub mod components;
-pub mod diff_view;
-pub mod renderer;
+pub mod editor;
+pub mod header;
+pub mod help;
+pub mod layout;
+pub mod logo;
+pub mod overlay_diff;
+pub mod prompt_input;
+pub mod renderers;
+pub mod search;
+pub mod session_turn;
+pub mod sidebar;
+pub mod status_bar;
+pub mod theme;
+pub mod widgets;
 
 pub use colors::Colors;
-pub use renderer::{RenderContext, Renderer};
-
+// Legacy ANSI constants retained for any remaining non-ratatui render paths
 pub const RESET: &str = "\x1b[0m";
 pub const BOLD: &str = "\x1b[1m";
 pub const DIM: &str = "\x1b[2m";
@@ -67,12 +79,4 @@ pub fn center_text(text: &str, width: usize) -> String {
     }
 }
 
-/// Clear the screen and move cursor to top-left
-pub fn clear_screen() {
-    print!("\x1b[2J\x1b[H");
-}
-
-/// Move cursor to a specific position (1-indexed)
-pub fn move_cursor(row: usize, col: usize) {
-    print!("\x1b[{};{}H", row, col);
-}
+// Note: Ratatui handles terminal clearing and cursor positioning automatically

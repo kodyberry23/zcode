@@ -1,109 +1,125 @@
-//! ZCode - A Zellij plugin for AI code assistant integration
-//!
-//! ZCode enables seamless integration of AI tools (Claude, Aider, and more) directly
-//! into your Zellij workspace. It provides an interactive diff viewer for reviewing
-//! AI-generated code changes, with safe file operations and automatic backups.
-//!
-//! # Features
-//!
-//! - **Multi-provider support**: Works with Claude, Aider, and custom AI tools
-//! - **Interactive diff viewer**: Navigate and selectively apply code changes
-//! - **Safe file operations**: Atomic writes with automatic backups and rollback
-//! - **Configurable**: Custom keybindings, providers, and display options
-//!
-//! # Architecture
-//!
-//! The plugin is organized into several key modules:
-//!
-//! - `state`: Central application state machine
-//! - `ui`: User interface components and rendering
-//! - `input`: Keyboard input handling and key bindings
-//! - `file_ops`: File operations with atomic writes and backups
-//! - `providers`: AI provider implementations
-//! - `diff`: Diff generation and hunk extraction
-//! - `parsers`: Parsing AI tool outputs
-//! - `config`: Configuration management
+// src/main.rs - Standalone Ratatui terminal application
 
-// Allow certain lints for stub code that will be implemented later
 #![allow(dead_code)]
 #![allow(unused_imports)]
 #![allow(unused_variables)]
-#![allow(clippy::ptr_arg)]
-#![allow(clippy::manual_clamp)]
-#![allow(clippy::default_constructed_unit_structs)]
 
+mod app;
+mod components;
 mod config;
 mod diff;
 mod error;
+mod events;
+mod executor;
+mod file_ops;
 mod input;
+mod message;
+mod model;
+mod neovim;
 mod parsers;
 mod providers;
 mod session;
 mod state;
 mod ui;
 
-// file_ops is now a module (directory)
-mod file_ops;
+use anyhow::Result;
+use crossterm::{
+    cursor,
+    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyModifiers},
+    execute,
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+};
+use ratatui::{backend::CrosstermBackend, Terminal};
+use std::io::{self, Write};
+use std::panic;
+use std::time::Duration;
 
-use std::collections::BTreeMap;
-use zellij_tile::prelude::*;
+use app::App;
 
-use crate::state::State;
+/// Restore terminal to normal state
+/// This is called on normal exit and on panic
+fn restore_terminal() {
+    // Best effort to restore terminal - ignore errors
+    let _ = disable_raw_mode();
+    let _ = execute!(
+        io::stdout(),
+        LeaveAlternateScreen,
+        DisableMouseCapture,
+        cursor::Show
+    );
+    // Flush stdout to ensure all escape sequences are sent
+    let _ = io::stdout().flush();
+}
 
-register_plugin!(State);
+/// Install panic hook that restores terminal before printing panic info
+fn install_panic_hook() {
+    let original_hook = panic::take_hook();
+    panic::set_hook(Box::new(move |panic_info| {
+        // Restore terminal first
+        restore_terminal();
+        // Then call the original panic handler
+        original_hook(panic_info);
+    }));
+}
 
-impl ZellijPlugin for State {
-    fn load(&mut self, _configuration: BTreeMap<String, String>) {
-        request_permission(&[
-            PermissionType::ReadApplicationState,
-            PermissionType::ChangeApplicationState,
-            PermissionType::OpenFiles,
-            PermissionType::RunCommands,
-        ]);
+#[tokio::main]
+async fn main() -> Result<()> {
+    // Install panic hook early to catch any panics during setup
+    install_panic_hook();
 
-        subscribe(&[EventType::Key, EventType::PermissionRequestResult]);
-
-        let _ = self.initialize(&_configuration);
+    // Check if we're running in a terminal
+    if !atty::is(atty::Stream::Stdout) {
+        eprintln!("Error: zcode must be run in a terminal (TTY)");
+        eprintln!("stdout is not a terminal. Are you piping output?");
+        eprintln!("\nHow to run zcode:");
+        eprintln!("  cargo run                    (direct run)");
+        eprintln!("  ./target/release/zcode       (run binary)");
+        eprintln!("  cargo run 2> debug.log       (save logs to file, keep UI)");
+        eprintln!("\nNote: TUI applications require a real terminal to display.");
+        std::process::exit(1);
     }
 
-    fn update(&mut self, event: Event) -> bool {
-        match event {
-            Event::Key(key) => self.handle_key(&key),
-            Event::PermissionRequestResult(result) => {
-                self.permissions_granted =
-                    matches!(result, zellij_tile::prelude::PermissionStatus::Granted);
-                true
-            }
-            _ => false,
-        }
+    // Run the application with proper terminal handling
+    let result = run().await;
+
+    // Always restore terminal on exit
+    restore_terminal();
+
+    // Report any errors after terminal is restored
+    if let Err(err) = result {
+        eprintln!("Error: {:?}", err);
+        std::process::exit(1);
     }
 
-    fn render(&mut self, rows: usize, cols: usize) {
-        use crate::ui::{RenderContext, Renderer};
+    Ok(())
+}
 
-        self.viewport_rows = rows;
-        self.viewport_cols = cols;
+async fn run() -> Result<()> {
+    // Setup terminal
+    enable_raw_mode().map_err(|e| {
+        anyhow::anyhow!(
+            "Failed to enable raw mode: {}. Make sure you're running in a proper terminal.",
+            e
+        )
+    })?;
 
-        if !self.permissions_granted {
-            println!("{}Requesting permissions...", crate::ui::RESET);
-            return;
-        }
+    let mut stdout = io::stdout();
+    execute!(
+        stdout,
+        EnterAlternateScreen,
+        EnableMouseCapture,
+        cursor::Hide
+    )?;
 
-        // Create render context
-        let colors = if self.config.display.color_scheme == "light" {
-            crate::ui::Colors::light()
-        } else {
-            crate::ui::Colors::dark()
-        };
-        let ctx = RenderContext::new(rows, cols, colors);
+    let backend = CrosstermBackend::new(stdout);
+    let mut terminal = Terminal::new(backend)?;
 
-        // Dispatch to appropriate renderer
-        if self.last_error.is_some() {
-            let renderer = crate::ui::renderer::ErrorRenderer;
-            renderer.render(self, &ctx);
-        } else {
-            let renderer = crate::ui::renderer::get_renderer_for_mode(&self.mode);
-            renderer.render(self, &ctx);
-        }
-    }
+    // Clear the screen on startup for a clean slate
+    terminal.clear()?;
+
+    // Create app
+    let mut app = App::new()?;
+
+    // Run the application
+    app.run(&mut terminal).await
 }

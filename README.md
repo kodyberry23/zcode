@@ -5,21 +5,38 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE.md)
 [![Rust 1.70+](https://img.shields.io/badge/rust-1.70%2B-orange.svg)](https://www.rust-lang.org/)
 
-A powerful Zellij plugin for integrating AI code assistants directly into your terminal. ZCode enables seamless AI-powered code generation, modification, and review workflows within your Zellij workspace.
+A powerful terminal UI for integrating AI code assistants directly into your workflow. ZCode enables seamless AI-powered code generation, modification, and review with an interactive diff viewer and safe file operations.
+
+```
+  _________ ___  ____  _____ 
+ |__  / ___/ _ \|  _ \| ____|
+   / / |  | | | | | | |  _|  
+  / /| |__| |_| | |_| | |___ 
+ /____\____\___/|____/|_____|
+```
 
 ## Features
 
 ✨ **AI Integration**
-- Support for multiple AI providers (Claude, Aider, and more)
-- Extensible architecture for adding new providers
-- Real-time streaming of AI responses
+- Support for multiple AI providers (Claude, Aider, GitHub Copilot, and more)
+- Extensible architecture for adding custom providers
+- Async command execution with real-time feedback
 - Multi-turn conversation support
 
-🔍 **Smart Diff Viewing**
-- Interactive diff viewer with hunk-level navigation
+🎨 **Modern Terminal UI**
+- Beautiful, responsive interface powered by Ratatui
+- Follows Ratatui best practices for layout and rendering
+- Clean, balanced layouts that adapt to terminal size (60-160+ columns)
+- Improved spacing and visual hierarchy
+- Helpful welcome screen with getting started guide
+- Smooth animations and real-time feedback
+
+🔍 **Interactive Diff Viewer**
+- Hunk-level navigation and review
 - Syntax-aware line highlighting
 - Scrollable diff display with pagination
-- Hunk-by-hunk acceptance/rejection
+- Selective acceptance/rejection of changes
+- Seamless Neovim/Vim integration for file editing
 
 ✅ **Safe File Operations**
 - Atomic file writes with automatic backups
@@ -27,11 +44,19 @@ A powerful Zellij plugin for integrating AI code assistants directly into your t
 - Automatic rollback on any operation failure
 - Configurable backup retention
 
+🔧 **Editor Integration**
+- Suspend TUI to launch Neovim/Vim for file editing
+- Open files at specific line numbers
+- Respects `$EDITOR` environment variable
+- Terminal state preserved across editor sessions
+- Changes automatically detected and reloaded
+
 ⚙️ **Highly Configurable**
 - Custom keybindings for all modes
-- User-selectable AI providers
-- Display and color scheme options
+- User-selectable AI providers with persistence
+- Display and color scheme options (dark/light themes)
 - Context line customization
+- XDG-compliant configuration
 
 ## Table of Contents
 
@@ -48,8 +73,7 @@ A powerful Zellij plugin for integrating AI code assistants directly into your t
 ### Prerequisites
 
 - Rust 1.70 or later ([Install](https://rustup.rs/))
-- Zellij 0.40.0 or later
-- wasm32-wasip1 target: `rustup target add wasm32-wasip1`
+- A terminal emulator (any modern terminal)
 
 ### Build from Source
 
@@ -58,119 +82,63 @@ A powerful Zellij plugin for integrating AI code assistants directly into your t
 git clone https://github.com/kodyberry23/zcode
 cd zcode
 
-# Build the plugin
-cargo build --release --target wasm32-wasip1
+# Build the application
+cargo build --release
 
-# The plugin will be at: target/wasm32-wasip1/release/zcode.wasm
+# The binary will be at: target/release/zcode
 ```
 
-### Download Pre-built Plugin
+### Install to System
 
-The easiest way to get started is to download the latest pre-built plugin from the [Releases page](https://github.com/kodyberry23/zcode/releases):
+```bash
+# Install to ~/.cargo/bin (make sure it's in your PATH)
+cargo install --path .
+
+# Or copy the binary to a location in your PATH
+sudo cp target/release/zcode /usr/local/bin/
+```
+
+### Download Pre-built Binary
+
+Download the latest pre-built binary from the [Releases page](https://github.com/kodyberry23/zcode/releases):
 
 **macOS / Linux:**
 ```bash
-mkdir -p ~/.config/zellij/plugins
-cd ~/.config/zellij/plugins
-
 # Download the latest release (replace v0.1.0 with the latest version tag)
-curl -L -o zcode.wasm https://github.com/kodyberry23/zcode/releases/download/v0.1.0/zcode.wasm
+curl -L -o zcode https://github.com/kodyberry23/zcode/releases/download/v0.1.0/zcode
+
+# Make it executable
+chmod +x zcode
+
+# Move to a location in your PATH
+sudo mv zcode /usr/local/bin/
 ```
 
-**Alternative using wget:**
-```bash
-wget -O ~/.config/zellij/plugins/zcode.wasm \
-  https://github.com/kodyberry23/zcode/releases/download/v0.1.0/zcode.wasm
-```
-
-Then skip to the "[Add to Zellij](#add-to-zellij)" section below.
-
-**Note:** Check the [Releases page](https://github.com/kodyberry23/zcode/releases) for the latest version tag to use instead of `v0.1.0`.
-
-### Add to Zellij
-
-First, ensure the plugin is in your Zellij plugins directory:
-
-```bash
-mkdir -p ~/.config/zellij/plugins
-# If building from source, copy from target directory
-# If downloading, the above download step already places it correctly
-```
-
-Then, choose one of the following methods to load the plugin (see [Zellij Plugin Loading Documentation](https://zellij.dev/documentation/plugin-loading.html)):
-
-#### Method 1: Keybinding (Recommended)
-
-Add to `~/.config/zellij/config.kdl`:
-
-```kdl
-keybindings {
-    normal {
-        bind "Ctrl z" {
-            LaunchOrFocusPlugin "file:~/.config/zellij/plugins/zcode.wasm" {
-                floating true
-            }
-        }
-    }
-}
-```
-
-Now press `Ctrl+z` to open ZCode in a floating pane.
-
-#### Method 2: Load on Startup
-
-Add to `~/.config/zellij/config.kdl`:
-
-```kdl
-load_plugins {
-    file:~/.config/zellij/plugins/zcode.wasm
-}
-```
-
-The plugin will load automatically when you start Zellij.
-
-#### Method 3: Custom Layout
-
-Create `~/.config/zellij/layouts/zcode.kdl`:
-
-```kdl
-layout {
-    pane size=1 borderless=true {
-        plugin location="file:~/.config/zellij/plugins/zcode.wasm"
-    }
-    pane split_direction="vertical" {
-        pane
-    }
-}
-```
-
-Then launch with:
-
-```bash
-zellij --layout zcode
-```
-
-#### Method 4: Plugin Manager
-
-Press `Ctrl+o` then `p` to open the plugin manager and load the plugin interactively.
+**Note:** Check the [Releases page](https://github.com/kodyberry23/zcode/releases) for the latest version tag.
 
 ## Quick Start
 
-### Load the Plugin
+### Run ZCode
 
-If you've set up the keybinding method (Method 1 above), press `Ctrl+z` to open ZCode.
+```bash
+# Run the application
+zcode
 
-Alternatively, if using the `load_plugins` method, ZCode will open automatically when you start Zellij.
+# Or if built from source
+./target/release/zcode
+```
 
 ### Basic Workflow
 
 1. **Select AI Provider**
    - Use `j`/`k` to navigate through available providers
    - Press `Enter` to select your preferred AI provider (e.g., Claude Code)
+   - Your selection is saved for next time
 
 2. **Enter Your Prompt**
    - Type your code modification request
-   - Press `Ctrl+Enter` to submit your prompt
+   - Press `Enter` to submit your prompt
+   - Watch the animated spinner while the AI processes
 
 3. **Review Changes**
    - Navigate through diffs with `j`/`k` (next/prev hunk)
@@ -196,7 +164,7 @@ context_lines = 3                  # Lines of context in diffs
 [display]
 show_line_numbers = true           # Show line numbers in diffs
 syntax_highlighting = true         # Highlight syntax
-color_scheme = "dark"              # Color scheme
+color_scheme = "dark"              # Color scheme (dark/light)
 
 [keybindings]
 # Override default keybindings
@@ -225,14 +193,14 @@ enabled = true
 enabled = true
 name = "My Custom AI"
 path = "/path/to/my/ai/tool"
-parser = "unified_diff"  # or "code_blocks", "json", "regex"
+parser = "unified_diff"  # or "code_blocks", "json"
 ```
 
 ### Provider Detection
 
-ZCode automatically detects installed AI providers using the following methods:
+ZCode automatically detects installed AI providers by checking:
 
-1. **PATH Detection**: Uses the `which` crate to find executables in your system PATH
+1. **PATH Detection**: Searches for executables in your system PATH
 2. **Custom Paths**: Checks for custom paths defined in `config.toml`
 3. **Cross-Platform**: Works on macOS, Linux, and Windows
 
@@ -242,77 +210,180 @@ If a provider is not detected automatically, you can specify its path in the con
 
 ### Keybindings
 
-#### Diff Review Mode
+#### Provider Selection Mode
 
 | Key | Action |
 |-----|--------|
-| `j` | Next hunk |
-| `k` | Previous hunk |
-| `J` | Next file |
-| `K` | Previous file |
-| `g` | Go to beginning |
-| `G` | Go to end |
-| `y` | Accept current hunk |
-| `n` | Reject current hunk |
-| `a` | Accept all hunks |
-| `r` | Reject all hunks |
-| `Enter` | Apply changes |
-| `q` / `Esc` | Quit |
+| `j` / `k` | Navigate providers |
+| `g` / `G` | Jump to first/last |
+| `Enter` | Select provider |
+| `q` | Quit |
 
 #### Prompt Entry Mode
 
 | Key | Action |
 |-----|--------|
-| `Ctrl+Enter` | Submit prompt |
-| `Ctrl+c` | Cancel |
-| `↑` / `↓` | History navigation |
+| Type | Enter prompt text |
+| `Shift+Enter` | New line (multiline support) |
+| `←` / `→` | Move cursor |
+| `Home` / `End` | Jump to start/end |
+| `Ctrl+U` | Clear line |
+| `Enter` | Submit prompt |
+| `Esc` | Back to provider selection |
+| `Ctrl+C` | Quit |
 
-#### Provider Selection Mode
+#### Normal Mode
 
 | Key | Action |
 |-----|--------|
-| `j` / `k` | Select provider |
-| `Enter` | Confirm selection |
-| `q` | Cancel |
+| `j` / `k` | Scroll down/up |
+| `h` / `l` | Scroll left/right |
+| `g g` | Jump to top |
+| `G` | Jump to bottom |
+| `/` | Search |
+| `:` | Command mode |
+| `?` | Toggle help |
+| `Ctrl+B` | Toggle sidebar |
+| `q` | Quit |
+
+#### Diff Review Mode
+
+| Key | Action |
+|-----|--------|
+| `j` / `k` | Next/previous hunk |
+| `J` / `K` | Next/previous file |
+| `g` / `G` | Jump to beginning/end |
+| `y` | Accept current hunk |
+| `n` | Reject current hunk |
+| `Y` | Accept all hunks |
+| `N` | Reject all hunks |
+| `Enter` | Apply changes |
+| `q` / `Esc` | Quit |
+
+#### Confirmation Mode
+
+| Key | Action |
+|-----|--------|
+| `y` / `Enter` | Confirm |
+| `n` / `Esc` | Cancel |
 
 ### Supported AI Providers
 
-- **Claude** - Direct integration with Claude via Anthropic CLI
-- **Aider** - Support for Aider's AI code assistant
+- **Claude** - Anthropic's Claude AI via official CLI
+- **Aider** - AI pair programming tool
+- **GitHub Copilot CLI** - GitHub's AI assistant
+- **Kiro** - AWS's AI code assistant (formerly Amazon Q)
 - **Custom** - Extensible for other LLM tools
+
+### Editor Integration
+
+ZCode seamlessly integrates with Neovim/Vim for editing files:
+
+**How it works:**
+1. The TUI suspends (disables raw mode, leaves alternate screen)
+2. Your `$EDITOR` is launched (defaults to `nvim`)
+3. Edit the file normally in your preferred editor
+4. Upon exit, the TUI automatically resumes
+5. File changes are detected and reloaded
+
+**Environment Variables:**
+- Set `$EDITOR` to your preferred editor (e.g., `export EDITOR=vim`)
+- Falls back to `nvim` if `$EDITOR` is not set
+
+**Features:**
+- Open files at specific line numbers
+- Terminal state fully preserved
+- No corruption or artifacts
+- Works with any terminal editor
+
+**Future Enhancement:**
+Keybindings will be added to open files directly from the diff view (e.g., press `e` on a hunk to edit that file at that location).
+
+### Layout & Responsiveness
+
+ZCode's UI adapts to your terminal size with three responsive breakpoints:
+
+**Compact Mode** (< 80 columns):
+- Vertical stack layout
+- Single column view
+- Ideal for split terminal windows
+
+**Normal Mode** (80-120 columns):
+- Optional sidebar (toggle with `Ctrl+B`)
+- Balanced content/sidebar split (flexible:25)
+- Comfortable for laptop screens
+
+**Wide Mode** (> 120 columns):
+- Three-panel layout: Chat | Diff | Sidebar
+- Side-by-side chat and diff viewer
+- Optimal for external monitors and ultra-wide displays
+
+All layouts follow Ratatui best practices:
+- Use `Constraint::Min` for flexible areas
+- Avoid mixing fixed `Length` with `Percentage`
+- Explicit spacers between components
+- Max-width centering (100 cols) for input on wide terminals
 
 ## Architecture
 
-### Plugin Structure
+### Application Structure
 
 ```
 zcode/
 ├── src/
-│   ├── lib.rs                  # Plugin entry point
-│   ├── state.rs                # Application state management
-│   ├── config.rs               # Configuration loading
-│   ├── diff.rs                 # Diff generation and extraction
-│   ├── parsers.rs              # AI output parsing
-│   ├── ui/                     # User interface
+│   ├── main.rs              # Application entry point
+│   ├── app.rs               # Main app struct with Ratatui integration
+│   ├── state.rs             # Application state management
+│   ├── model.rs             # Application model (state + config)
+│   ├── config.rs            # Configuration loading
+│   ├── executor.rs          # Async command execution
+│   ├── events.rs            # Event system (keyboard, resize, etc)
+│   ├── message.rs           # Message-driven architecture
+│   ├── parsers.rs           # AI output parsing
+│   ├── ui/                  # User interface
 │   │   ├── mod.rs
-│   │   ├── renderer.rs         # UI rendering trait
-│   │   ├── components.rs       # UI components
-│   │   ├── diff_view.rs        # Diff viewer
-│   │   └── colors.rs           # Color schemes
-│   ├── input/                  # Input handling
+│   │   ├── renderers.rs     # Ratatui-based rendering
+│   │   ├── colors.rs        # Color schemes and themes
+│   │   ├── layout.rs        # Responsive layout helpers
+│   │   ├── editor.rs        # Neovim/Vim integration
+│   │   ├── header.rs        # Top header bar
+│   │   ├── status_bar.rs    # Bottom status bar
+│   │   ├── session_turn.rs  # Chat message rendering
+│   │   ├── prompt_input.rs  # Prompt input component
+│   │   ├── overlay_diff.rs  # Diff overlay viewer
+│   │   ├── sidebar.rs       # Sidebar panel
+│   │   ├── help.rs          # Help overlay
+│   │   ├── logo.rs          # ASCII logo
+│   │   └── widgets/         # Custom Ratatui widgets
+│   ├── components/          # UI component trait system
 │   │   ├── mod.rs
-│   │   ├── handler.rs          # Input handler trait
-│   │   ├── keybindings.rs      # Keybinding management
-│   │   └── modes/              # Mode-specific handlers
-│   ├── file_ops/               # File operations
+│   │   ├── chat_panel.rs
+│   │   ├── diff_view.rs
+│   │   ├── provider_select.rs
+│   │   └── ...
+│   ├── input/               # Input handling
 │   │   ├── mod.rs
-│   │   ├── backup.rs           # Backup management
-│   │   ├── apply.rs            # Apply changes
-│   │   └── reconstruct.rs      # Hunk reconstruction
-│   └── providers/              # AI provider implementations
-│       ├── mod.rs
-│       ├── claude.rs
-│       └── aider.rs
+│   │   ├── handler.rs       # Input handler trait
+│   │   ├── keymap.rs        # Vim-style keybinding registry
+│   │   ├── parser.rs        # Multi-key sequence parser
+│   │   └── modes/           # Mode-specific handlers
+│   ├── file_ops/            # File operations
+│   │   ├── mod.rs
+│   │   ├── backup.rs        # Backup management
+│   │   ├── apply.rs         # Apply changes
+│   │   └── reconstruct.rs   # Hunk reconstruction
+│   ├── providers/           # AI provider implementations
+│   │   ├── mod.rs
+│   │   ├── claude.rs
+│   │   ├── aider.rs
+│   │   ├── copilot.rs
+│   │   ├── amazon_q.rs
+│   │   └── custom.rs
+│   ├── neovim/              # Neovim RPC integration
+│   │   ├── client.rs        # Neovim client
+│   │   ├── extmarks.rs      # Extmark management
+│   │   └── highlights.rs    # Highlight groups
+│   └── session.rs           # Session management
 ├── Cargo.toml
 ├── README.md
 ├── LICENSE.md
@@ -321,11 +392,18 @@ zcode/
 
 ### Key Components
 
+- **Message-Driven Architecture**: Elm-style update pattern for predictable state management
+- **Component System**: Reusable UI components with consistent trait interface
+- **Responsive Layout**: Ratatui-based layouts that adapt to terminal size (3 breakpoints: Compact, Normal, Wide)
 - **State Management**: Centralized state machine for all modes
+- **Async Execution**: Non-blocking command execution with Tokio
+- **Event System**: Unified event handling for keyboard, mouse, resize, and timer events
 - **Diff Engine**: Unified diff generation using the `similar` crate
-- **UI System**: ANSI escape codes with Zellij's native components
+- **UI System**: Modern terminal UI following Ratatui best practices
+- **Editor Integration**: Suspend/resume TUI pattern for seamless Neovim/Vim integration
 - **File Operations**: Atomic transactions with rollback support
 - **Provider Abstraction**: Pluggable AI provider system
+- **Vim-style Keybindings**: Multi-key sequence support with modal editing
 
 ## Development
 
@@ -354,8 +432,8 @@ cargo fmt --all -- --check
 # Run linter
 cargo clippy -- -D warnings
 
-# Build WASM plugin
-cargo build --release --target wasm32-wasip1
+# Build release binary
+cargo build --release
 ```
 
 ### Documentation
@@ -370,22 +448,24 @@ RUSTDOCFLAGS="-D warnings" cargo doc --no-deps
 
 ## Performance
 
-- **Plugin Size**: ~1 MB (WASM release build)
+- **Binary Size**: ~5 MB (release build, optimized)
 - **Memory**: Minimal footprint (< 10 MB)
 - **Response Time**: < 100ms for typical operations
 - **Diff Generation**: Efficient diffing using patience algorithm
+- **Async I/O**: Non-blocking command execution
 
 ## Troubleshooting
 
-### Plugin Not Loading
-- Verify plugin is at `~/.config/zellij/plugins/zcode.wasm`
-- Check Zellij version (requires 0.40.0+)
-- Review Zellij logs for error messages
+### Application Won't Start
+- Verify you have Rust 1.70+ installed: `rustc --version`
+- Try rebuilding: `cargo clean && cargo build --release`
+- Check terminal compatibility (most modern terminals work)
 
 ### AI Provider Not Found
 - Ensure the AI tool CLI is installed and in PATH
-- Check provider configuration in `config.toml`
-- Verify provider binary permissions
+- Check provider configuration in `~/.config/zcode/config.toml`
+- Verify provider binary permissions: `which claude` (or aider, etc.)
+- Specify custom path in config if needed
 
 ### Backup Issues
 - Backups are stored in `~/.cache/zcode/backups/`
@@ -403,19 +483,39 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 
 ## Roadmap
 
+### Recently Completed ✅
+- [x] Responsive layout with Ratatui best practices (3 breakpoints)
+- [x] Improved spacing and visual hierarchy
+- [x] Neovim/Vim integration (suspend/resume TUI)
+- [x] Welcome screen with getting started guide
+- [x] Multiline prompt input support
+- [x] Max-width centering for better wide terminal support
+- [x] Message-driven architecture (Elm-style)
+- [x] Component-based UI system
+
+### In Progress 🚧
+- [ ] Editor keybindings for opening files from diff view
+- [ ] Syntax highlighting in diff viewer
+- [ ] Auto-scroll in chat panel
+
+### Planned 📋
+- [ ] Real-time streaming of AI responses
+- [ ] Better diff visualization with inline syntax highlighting
 - [ ] Integration with Ollama for local LLM support
 - [ ] Git integration for seamless diff management
-- [ ] Language-specific parsers for better output extraction
-- [ ] Plugin marketplace support
-- [ ] Real-time collaboration features
+- [ ] Command palette (fuzzy finder)
+- [ ] Mouse support
+- [ ] Plugin system for custom providers
+- [ ] Theme customization and more color schemes
+- [ ] Persistent session history
 
 ## Releases & Versioning
 
 ### Downloading Releases
 
-Pre-built WASM plugins are available on the [Releases page](https://github.com/kodyberry23/zcode/releases). Each release includes:
+Pre-built binaries are available on the [Releases page](https://github.com/kodyberry23/zcode/releases). Each release includes:
 
-- Pre-compiled `zcode.wasm` plugin
+- Pre-compiled binary for your platform
 - Installation instructions
 - Change notes
 
@@ -436,9 +536,9 @@ git push origin vX.Y.Z
 ```
 
 GitHub Actions will automatically:
-1. Build the WASM plugin
-2. Create a GitHub Release with the binary
-3. Upload `zcode.wasm` as a downloadable asset
+1. Build the binary
+2. Create a GitHub Release
+3. Upload the binary as a downloadable asset
 
 This uses a **tag-based release workflow** which:
 - Gives explicit control over when releases happen
@@ -452,7 +552,7 @@ ZCode is licensed under the [MIT License](LICENSE.md).
 
 ## Acknowledgments
 
-Inspired by tools like [Aider](https://aider.chat/), [GitHub Copilot](https://github.com/features/copilot), and the excellent [Zellij](https://zellij.dev/) plugin ecosystem.
+Inspired by tools like [Aider](https://aider.chat/), [GitHub Copilot](https://github.com/features/copilot), and the excellent [Ratatui](https://ratatui.rs/) TUI framework.
 
 Built with ❤️ for the Rust and AI development communities.
 

@@ -1,16 +1,18 @@
 // src/providers/aider.rs - Aider provider implementation
 
-use anyhow::{Context, Result};
-use std::process::Command;
+use anyhow::Result;
 
-use super::AIProvider;
+use super::{AIProvider, ParserType};
+use crate::config::ProviderConfig;
 use crate::parsers::parse_unified_diff;
-use crate::state::{FileChange, PromptRequest, ProviderResponse};
+use crate::state::{FileChange, PromptRequest};
 
 #[derive(Debug, Clone)]
 pub struct AiderProvider {
     pub model: String,
     pub edit_format: String,
+    /// Custom CLI path (if specified in config)
+    pub cli_path: Option<String>,
 }
 
 impl Default for AiderProvider {
@@ -18,6 +20,17 @@ impl Default for AiderProvider {
         Self {
             model: "gpt-4".to_string(),
             edit_format: "diff".to_string(),
+            cli_path: None,
+        }
+    }
+}
+
+impl AiderProvider {
+    pub fn new(config: Option<&ProviderConfig>) -> Self {
+        Self {
+            model: "gpt-4".to_string(),
+            edit_format: "diff".to_string(),
+            cli_path: config.and_then(|c| c.path.clone()),
         }
     }
 }
@@ -28,54 +41,38 @@ impl AIProvider for AiderProvider {
     }
 
     fn cli_command(&self) -> &str {
-        "aider"
+        self.cli_path.as_deref().unwrap_or("aider")
     }
 
-    fn execute(&self, request: &PromptRequest) -> Result<ProviderResponse> {
-        let mut cmd = Command::new("aider");
-        cmd.args([
-            "--model",
-            &self.model,
-            "--edit-format",
-            &self.edit_format,
-            "--yes",    // Auto-confirm
-            "--no-git", // Don't auto-commit
-            "--message",
-            &request.prompt,
-        ]);
+    fn build_execute_args(&self, request: &PromptRequest) -> Vec<String> {
+        let mut args = vec![
+            "--model".to_string(),
+            self.model.clone(),
+            "--edit-format".to_string(),
+            self.edit_format.clone(),
+            "--yes".to_string(),    // Auto-confirm
+            "--no-git".to_string(), // Don't auto-commit
+            "--message".to_string(),
+            request.prompt.clone(),
+        ];
 
         // Add files to context
         for file in &request.context_files {
-            cmd.arg(file);
+            args.push(file.to_string_lossy().to_string());
         }
 
-        let output = cmd.output().context("Failed to execute Aider CLI")?;
-
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            anyhow::bail!("Aider CLI failed: {}", stderr);
-        }
-
-        Ok(ProviderResponse {
-            raw_output: String::from_utf8_lossy(&output.stdout).to_string(),
-            exit_code: output.status.code().unwrap_or(-1),
-            stderr: String::from_utf8_lossy(&output.stderr).to_string(),
-        })
+        args
     }
 
     fn parse_file_changes(&self, output: &str) -> Result<Vec<FileChange>> {
         parse_unified_diff(output)
     }
 
-    fn supports_sessions(&self) -> bool {
-        false
+    fn parser_type(&self) -> ParserType {
+        ParserType::UnifiedDiff
     }
 
-    fn is_available(&self) -> bool {
-        Command::new("aider")
-            .arg("--version")
-            .output()
-            .map(|output| output.status.success())
-            .unwrap_or(false)
+    fn supports_sessions(&self) -> bool {
+        false
     }
 }

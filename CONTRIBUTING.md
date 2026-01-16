@@ -15,7 +15,7 @@ Before creating a bug report, please check if the issue already exists. When cre
 - **Steps to reproduce the issue**
 - **Expected vs. actual behavior**
 - **Screenshots or error logs if applicable**
-- **Environment details** (OS, Rust version, Zellij version)
+- **Environment details** (OS, Rust version, terminal emulator)
 
 ## Suggesting Features
 
@@ -32,8 +32,7 @@ Feature suggestions are welcome! When proposing a new feature:
 ### Prerequisites
 
 - Rust 1.70+ (install from [rustup.rs](https://rustup.rs/))
-- Zellij (for testing the plugin)
-- wasm32-wasip1 target: `rustup target add wasm32-wasip1`
+- A terminal emulator (for testing the TUI)
 
 ### Building
 
@@ -42,8 +41,8 @@ Feature suggestions are welcome! When proposing a new feature:
 git clone https://github.com/kodyberry23/zcode
 cd zcode
 
-# Build for WASM
-cargo build --release --target wasm32-wasip1
+# Build the application
+cargo build --release
 
 # Run tests
 cargo test --lib
@@ -53,6 +52,9 @@ cargo clippy -- -D warnings
 
 # Format code
 cargo fmt --all
+
+# Run the application
+cargo run --release
 ```
 
 ## Making Changes

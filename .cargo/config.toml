@@ -1,3 +1,0 @@
-# Configuration for wasm32-wasip1 target
-# Note: wasm32-wasip1 defaults to reactor model (no _start)
-# Zellij plugins need command model (with _start)

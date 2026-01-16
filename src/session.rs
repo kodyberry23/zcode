@@ -1,5 +1,6 @@
 // src/session.rs - Session management
 
+use crate::state::ChatMessage;
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -19,11 +20,22 @@ pub struct SessionManager {
 pub struct Session {
     pub id: String,
     pub provider: String,
+    pub model: Option<String>,
     pub created_at: DateTime<Utc>,
     pub last_used: DateTime<Utc>,
     pub description: String,
     pub prompt_count: u32,
     pub working_directory: PathBuf,
+
+    // Extended fields for full persistence
+    #[serde(default)]
+    pub messages: Vec<ChatMessage>,
+    #[serde(default)]
+    pub total_tokens: usize,
+    #[serde(default)]
+    pub total_cost: f64,
+    #[serde(default)]
+    pub context_files: Vec<PathBuf>,
 }
 
 impl SessionManager {
@@ -72,11 +84,16 @@ impl SessionManager {
         let session = Session {
             id: id.clone(),
             provider: provider.to_string(),
+            model: None,
             created_at: Utc::now(),
             last_used: Utc::now(),
             description: String::new(),
             prompt_count: 0,
             working_directory: cwd.to_path_buf(),
+            messages: Vec::new(),
+            total_tokens: 0,
+            total_cost: 0.0,
+            context_files: Vec::new(),
         };
 
         self.sessions.insert(id.clone(), session);

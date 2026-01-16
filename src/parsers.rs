@@ -245,7 +245,7 @@ line 3"#;
 +line2"#;
 
         let result = parse_unified_diff(input).unwrap();
-        assert!(result.len() >= 1);
+        assert!(!result.is_empty());
         // At least file1 should be present
         assert!(result.iter().any(|c| c.path == PathBuf::from("file1.txt")));
     }
@@ -262,7 +262,7 @@ fn main() {
 "#;
 
         let result = parse_code_blocks(input).unwrap();
-        assert!(result.len() > 0);
+        assert!(!result.is_empty());
         // Path extraction may fail if file doesn't exist, but shouldn't panic
     }
 

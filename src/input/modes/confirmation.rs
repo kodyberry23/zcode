@@ -2,20 +2,20 @@
 
 use crate::input::handler::{key_helpers, Action, InputHandler, InputResult};
 use crate::state::{Mode, State};
-use zellij_tile::prelude::{BareKey, KeyWithModifier};
+use crossterm::event::{KeyCode, KeyEvent};
 
 /// Input handler for confirmation mode
 pub struct ConfirmationHandler;
 
 impl InputHandler for ConfirmationHandler {
-    fn handle_key(&mut self, key: &KeyWithModifier, state: &mut State) -> InputResult {
+    fn handle_key(&mut self, key: &KeyEvent, state: &mut State) -> InputResult {
         use key_helpers::*;
 
-        if is_char(key, 'y') || is_key(key, BareKey::Enter) {
+        if is_char(key, 'y') || is_key(key, KeyCode::Enter) {
             return InputResult::Action(Action::Confirm);
         }
 
-        if is_char(key, 'n') || is_key(key, BareKey::Esc) {
+        if is_char(key, 'n') || is_key(key, KeyCode::Esc) {
             return InputResult::Action(Action::Deny);
         }
 

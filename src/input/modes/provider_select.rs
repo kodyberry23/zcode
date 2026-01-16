@@ -2,13 +2,13 @@
 
 use crate::input::handler::{key_helpers, Action, InputHandler, InputResult};
 use crate::state::{Mode, State};
-use zellij_tile::prelude::{BareKey, KeyWithModifier};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 /// Input handler for provider selection mode
 pub struct ProviderSelectHandler;
 
 impl InputHandler for ProviderSelectHandler {
-    fn handle_key(&mut self, key: &KeyWithModifier, state: &mut State) -> InputResult {
+    fn handle_key(&mut self, key: &KeyEvent, state: &mut State) -> InputResult {
         use key_helpers::*;
 
         // Navigation
@@ -25,7 +25,7 @@ impl InputHandler for ProviderSelectHandler {
         }
 
         // Select provider
-        if is_key(key, BareKey::Enter) {
+        if is_key(key, KeyCode::Enter) {
             return InputResult::Action(Action::SelectProvider(state.selected_provider_idx));
         }
 
@@ -35,7 +35,7 @@ impl InputHandler for ProviderSelectHandler {
             return InputResult::Consumed;
         }
 
-        if is_char(key, 'G') && has_modifier(key, zellij_tile::prelude::KeyModifier::Shift) {
+        if is_char(key, 'G') && has_modifier(key, KeyModifiers::SHIFT) {
             state.selected_provider_idx = state.available_providers.len().saturating_sub(1);
             return InputResult::Consumed;
         }

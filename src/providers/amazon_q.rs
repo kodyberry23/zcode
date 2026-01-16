@@ -1,55 +1,52 @@
-// src/providers/amazon_q.rs - Amazon Q Developer provider
+// src/providers/amazon_q.rs - Kiro CLI provider (formerly Amazon Q Developer)
 
-use anyhow::{Context, Result};
-use std::process::Command;
+use anyhow::Result;
 
-use super::AIProvider;
+use super::{AIProvider, ParserType};
+use crate::config::ProviderConfig;
 use crate::parsers::parse_code_blocks;
-use crate::state::{FileChange, PromptRequest, ProviderResponse};
+use crate::state::{FileChange, PromptRequest};
 
-#[derive(Debug, Default, Clone)]
-pub struct AmazonQProvider;
+#[derive(Debug, Clone, Default)]
+pub struct AmazonQProvider {
+    /// Custom CLI path (if specified in config)
+    pub cli_path: Option<String>,
+}
+
+impl AmazonQProvider {
+    pub fn new(config: Option<&ProviderConfig>) -> Self {
+        Self {
+            cli_path: config.and_then(|c| c.path.clone()),
+        }
+    }
+}
 
 impl AIProvider for AmazonQProvider {
     fn name(&self) -> &str {
-        "Amazon Q Developer"
+        "Kiro CLI"
     }
 
     fn cli_command(&self) -> &str {
-        "q"
+        self.cli_path.as_deref().unwrap_or("kiro")
     }
 
-    fn execute(&self, request: &PromptRequest) -> Result<ProviderResponse> {
-        let mut cmd = Command::new("q");
-        cmd.args(["chat", "--no-interactive", &request.prompt]);
-
-        let output = cmd.output().context("Failed to execute Amazon Q CLI")?;
-
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            anyhow::bail!("Amazon Q CLI failed: {}", stderr);
-        }
-
-        Ok(ProviderResponse {
-            raw_output: String::from_utf8_lossy(&output.stdout).to_string(),
-            exit_code: output.status.code().unwrap_or(-1),
-            stderr: String::from_utf8_lossy(&output.stderr).to_string(),
-        })
+    fn build_execute_args(&self, request: &PromptRequest) -> Vec<String> {
+        vec![
+            "chat".to_string(),
+            "--no-interactive".to_string(),
+            request.prompt.clone(),
+        ]
     }
 
     fn parse_file_changes(&self, output: &str) -> Result<Vec<FileChange>> {
         parse_code_blocks(output)
     }
 
-    fn supports_sessions(&self) -> bool {
-        true
+    fn parser_type(&self) -> ParserType {
+        ParserType::CodeBlocks
     }
 
-    fn is_available(&self) -> bool {
-        Command::new("q")
-            .arg("--version")
-            .output()
-            .map(|output| output.status.success())
-            .unwrap_or(false)
+    fn supports_sessions(&self) -> bool {
+        true
     }
 }
